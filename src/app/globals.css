@@ -1,26 +1,121 @@
 @import "tailwindcss";
 
+@theme {
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-display: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --background: #0b0f17;
+  --foreground: #f1f5f9;
+  --card: #111726;
+  --card-foreground: #f8fafc;
+  --popover: #111726;
+  --popover-foreground: #f8fafc;
+  --primary: #3b82f6;
+  --primary-foreground: #ffffff;
+  --secondary: #1e293b;
+  --secondary-foreground: #f8fafc;
+  --muted: #1e293b;
+  --muted-foreground: #94a3b8;
+  --accent: #1e293b;
+  --accent-foreground: #f8fafc;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --border: #1e293b;
+  --input: #1e293b;
+  --ring: #3b82f6;
+  --radius: 0.5rem;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: #090d16;
+  color: #f1f5f9;
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Headings use the same sans family, slightly tightened — one voice everywhere. */
+h1,
+h2,
+h3,
+h4,
+.font-display {
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, sans-serif;
+  letter-spacing: -0.015em;
+}
+
+/* Blinking cursor for the AI explanation stream */
+@keyframes tf-caret-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+.tf-caret {
+  display: inline-block;
+  width: 8px;
+  margin-left: 2px;
+  background: #60a5fa;
+  animation: tf-caret-blink 1s step-end infinite;
+  vertical-align: text-bottom;
+  border-radius: 1px;
+}
+
+/* Hero entrance — soft rise + fade, staggered via animation-delay */
+@keyframes tf-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.tf-rise {
+  animation: tf-rise 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Flowing gradient for the brand name */
+@keyframes tf-gradient-pan {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+.tf-gradient-text {
+  background-size: 220% auto;
+  animation: tf-gradient-pan 6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tf-rise,
+  .tf-gradient-text {
+    animation: none;
+  }
+}
+
+/* Custom scrollbar for modern dashboards */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #26334d;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #334466;
 }

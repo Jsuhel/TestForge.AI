@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TestForge Demo App — Loan Portal</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: "Segoe UI", system-ui, sans-serif;
+      background: #0b0f17; color: #e2e8f0;
+      display: flex; justify-content: center; padding: 48px 16px;
+    }
+    .card {
+      background: #111726; border: 1px solid #1e293b; border-radius: 16px;
+      padding: 32px; width: 100%; max-width: 460px;
+    }
+    h1 { font-size: 20px; margin-bottom: 4px; color: #fff; }
+    p.sub { font-size: 13px; color: #94a3b8; margin-bottom: 24px; }
+    label { display: block; font-size: 12px; color: #94a3b8; margin: 14px 0 6px; }
+    input {
+      width: 100%; padding: 10px 12px; border-radius: 8px;
+      border: 1px solid #334155; background: #0b0f17; color: #e2e8f0; font-size: 14px;
+    }
+    input:focus { outline: none; border-color: #3b82f6; }
+    button {
+      margin-top: 24px; width: 100%; padding: 12px; border-radius: 8px;
+      border: 1px solid #2563eb; background: #2563eb; color: #fff;
+      font-size: 15px; font-weight: 600; cursor: pointer;
+    }
+    button:hover { background: #3b82f6; }
+    .alert, .success { margin-top: 18px; padding: 12px 14px; border-radius: 8px; font-size: 13px; display: none; }
+    .alert { background: rgba(239,68,68,.1); border: 1px solid rgba(239,68,68,.4); color: #fca5a5; }
+    .success { background: rgba(16,185,129,.1); border: 1px solid rgba(16,185,129,.4); color: #6ee7b7; }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <h1>Loan Portal — Applicant Registration</h1>
+    <p class="sub">Built-in demo target for verifying TestForge automation end to end.</p>
+
+    <form id="registration-form" novalidate>
+      <label for="full-name">Full name</label>
+      <input id="full-name" name="fullName" type="text" autocomplete="name" />
+
+      <label for="email">Email address</label>
+      <input id="email" name="email" type="email" autocomplete="email" />
+
+      <label for="phone">Phone number</label>
+      <input id="phone" name="phone" type="tel" autocomplete="tel" />
+
+      <label for="password">Password</label>
+      <input id="password" name="password" type="password" autocomplete="new-password" />
+
+      <label for="amount">Loan amount (USD)</label>
+      <input id="amount" name="amount" type="number" min="1000" max="500000" />
+
+      <button type="submit">Register &amp; Apply</button>
+    </form>
+
+    <div id="error-box" class="alert" role="alert"></div>
+    <div id="success-box" class="success" role="status"></div>
+  </main>
+
+  <script>
+    document.getElementById("registration-form").addEventListener("submit", function (event) {
+      event.preventDefault();
+      var email = document.getElementById("email").value;
+      var name = document.getElementById("full-name").value;
+      var errorBox = document.getElementById("error-box");
+      var successBox = document.getElementById("success-box");
+
+      errorBox.style.display = "none";
+      successBox.style.display = "none";
+
+      if (!name.trim()) {
+        errorBox.textContent = "Validation error: full name is required.";
+        errorBox.style.display = "block";
+        return;
+      }
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+        errorBox.textContent = "Validation error: please enter a valid email address format.";
+        errorBox.style.display = "block";
+        return;
+      }
+
+      successBox.textContent = "Registration successful! Your loan application has been created.";
+      successBox.style.display = "block";
+    });
+  </script>
+</body>
+</html>
