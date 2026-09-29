@@ -15,9 +15,9 @@ export const AI_MODEL =
   process.env.ANTHROPIC_DEFAULT_OPUS_MODEL ??
   "claude-opus-5";
 
-/** OpenRouter backup model — used when GLM / Anthropic is unavailable or unconfigured. */
+/** OpenRouter default model — Gemini 3.8 Flash. */
 export const OPENROUTER_MODEL =
-  process.env.OPENROUTER_MODEL ?? "anthropic/claude-sonnet-5.5";
+  process.env.OPENROUTER_MODEL ?? "google/gemini-3.8-flash";
 
 /** Human-readable engine name for UI badges ("GLM AI", "OpenRouter AI", "Claude AI"). */
 export function aiEngineLabel(provider?: "glm" | "openrouter" | "claude"): string {
@@ -46,8 +46,54 @@ export async function getAIClient(): Promise<Anthropic> {
   return new AnthropicClient(timeout ? { timeout } : {});
 }
 
+interface OpenRouterQuotaInfo {
+  remainingRatio: number; // 0.0 to 1.0 (e.g. 0.65 means 65% remaining)
+  checkedAt: number;
+}
+
+let cachedQuotaInfo: OpenRouterQuotaInfo | null = null;
+const QUOTA_CACHE_TTL_MS = 60_000; // Check auth key limits once per minute max
+
+/**
+ * Check remaining quota ratio on OpenRouter.
+ * Returns a value between 0.0 and 1.0 (e.g. 0.68 = 68% remaining).
+ */
+async function getOpenRouterRemainingRatio(apiKey: string): Promise<number | null> {
+  const now = Date.now();
+  if (cachedQuotaInfo && now - cachedQuotaInfo.checkedAt < QUOTA_CACHE_TTL_MS) {
+    return cachedQuotaInfo.remainingRatio;
+  }
+
+  try {
+    const res = await fetch("https://openrouter.ai/api/v1/auth/key", {
+      headers: { Authorization: `Bearer ${apiKey}` },
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    const data = json?.data;
+    if (!data) return null;
+
+    let ratio = 1.0;
+    // Check credit limit if specified
+    if (typeof data.limit === "number" && data.limit > 0 && typeof data.limit_remaining === "number") {
+      ratio = Math.min(ratio, data.limit_remaining / data.limit);
+    }
+    // Check free model daily limit if active
+    if (data.free_model_daily_requests?.limit > 0 && typeof data.free_model_daily_requests?.remaining === "number") {
+      ratio = Math.min(ratio, data.free_model_daily_requests.remaining / data.free_model_daily_requests.limit);
+    }
+
+    cachedQuotaInfo = { remainingRatio: ratio, checkedAt: now };
+    return ratio;
+  } catch {
+    return cachedQuotaInfo?.remainingRatio ?? null;
+  }
+}
+
 /**
  * Call OpenRouter API as a fallback when GLM is unavailable.
+ * Primary: google/gemini-3.8-flash
+ * If limits reach less than 70% (or on rate-limit error): automatically switches to google/gemini-2.5-flash.
  */
 async function callOpenRouter(
   system: string,
@@ -57,11 +103,21 @@ async function callOpenRouter(
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) return null;
 
-  const candidateModels = [
-    OPENROUTER_MODEL,
-    "google/gemini-3.7-flash",
-    "google/gemini-2.5-flash",
-  ];
+  // Check remaining limit ratio
+  const remainingRatio = await getOpenRouterRemainingRatio(apiKey);
+  const isBelow70Percent = remainingRatio !== null && remainingRatio < 0.70;
+
+  if (isBelow70Percent) {
+    console.warn(
+      `[OpenRouter] Remaining limit is at ${(remainingRatio * 100).toFixed(1)}% (< 70%). Switching to google/gemini-2.5-flash.`
+    );
+  }
+
+  // Model prioritization:
+  // If limit reaches < 70%, prioritize Gemini 2.5 Flash; otherwise use Gemini 3.8 Flash.
+  const candidateModels = isBelow70Percent
+    ? ["google/gemini-2.5-flash", "google/gemini-3.8-flash"]
+    : [OPENROUTER_MODEL, "google/gemini-2.5-flash"];
 
   for (const model of candidateModels) {
     try {
@@ -75,7 +131,7 @@ async function callOpenRouter(
         },
         body: JSON.stringify({
           model,
-          max_tokens: Math.min(maxTokens, 8000), // Fit safely within credit allowance
+          max_tokens: Math.min(maxTokens, 8000), // Safe token allowance
           messages: [
             { role: "system", content: system },
             { role: "user", content: userPrompt },
@@ -86,6 +142,7 @@ async function callOpenRouter(
       if (!response.ok) {
         const errText = await response.text();
         console.warn(`[OpenRouter] model ${model} failed (${response.status}):`, errText);
+        // If 429 (rate-limit) or limit error, continue to 2.5 Flash
         continue;
       }
 
