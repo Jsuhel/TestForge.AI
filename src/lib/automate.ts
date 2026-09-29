@@ -1,7 +1,6 @@
-import type Anthropic from "@anthropic-ai/sdk";
 import type { TestCase } from "./types";
 import { claudeCredentialsPresent } from "./analyze";
-import { getAIClient, AI_MODEL, aiEngineLabel } from "./model";
+import { executeAICall, aiEngineLabel } from "./model";
 
 // ---------------------------------------------------------------------------
 // Prerequisite detection — figures out what a test case needs before automation
@@ -257,15 +256,13 @@ export function builtinPlaywrightScript(
 }
 
 // ---------------------------------------------------------------------------
-// Claude AI path (used automatically when ANTHROPIC_API_KEY is set)
+// AI Playwright script generation (Primary GLM -> Backup OpenRouter)
 // ---------------------------------------------------------------------------
 
 export async function claudePlaywrightScript(
   tc: TestCase,
   params: Record<string, string>,
-): Promise<string | null> {
-  const client = await getAIClient();
-
+): Promise<{ script: string; engineLabel: string } | null> {
   const system = [
     "You are a senior test automation engineer.",
     "Write a complete, runnable Playwright (TypeScript, @playwright/test) spec for the supplied manual test case.",
@@ -285,35 +282,24 @@ export async function claudePlaywrightScript(
     "- The script must compile with strict TypeScript and pass `npx playwright test` as-is.",
   ].join(" ");
 
-  const stream = client.messages.stream({
-    model: AI_MODEL,
-    max_tokens: 16000,
-    thinking: { type: "adaptive" },
-    // Deep reasoning for code generation — correctness matters more than latency here.
-    output_config: { effort: "xhigh" },
+  const aiOutput = await executeAICall({
     system,
-    messages: [
-      {
-        role: "user",
-        content: `Automate this test case.\n\n<test-case>\n${JSON.stringify(tc, null, 1)}\n</test-case>\n\n<prerequisites-provided-by-user>\n${JSON.stringify(params, null, 1)}\n</prerequisites>`,
-      },
-    ],
+    userPrompt: `Automate this test case.\n\n<test-case>\n${JSON.stringify(tc, null, 1)}\n</test-case>\n\n<prerequisites-provided-by-user>\n${JSON.stringify(params, null, 1)}\n</prerequisites>`,
+    maxTokens: 8000,
   });
 
-  const response = await stream.finalMessage();
-  const raw = response.content
-    .filter((block): block is Anthropic.TextBlock => block.type === "text")
-    .map((block) => block.text)
-    .join("");
+  if (!aiOutput?.text) return null;
 
   // Strip markdown fences if the model added them anyway.
-  const code = raw.replace(/^```(?:typescript|ts)?\s*/i, "").replace(/```\s*$/i, "").trim();
-  return code.includes("test(") ? code : null;
+  const code = aiOutput.text.replace(/^```(?:typescript|ts)?\s*/i, "").replace(/```\s*$/i, "").trim();
+  if (!code.includes("test(")) return null;
+
+  return { script: code, engineLabel: aiOutput.engineLabel };
 }
 
 export interface AutomationResult {
   engine: "claude" | "builtin";
-  /** Display name for UI badges — reflects the configured model (e.g. "GLM AI"). */
+  /** Display name for UI badges — reflects the configured model (e.g. "GLM AI" or "OpenRouter AI"). */
   engineLabel: string;
   script: string;
 }
@@ -324,8 +310,10 @@ export async function generatePlaywrightScript(
 ): Promise<AutomationResult> {
   if (claudeCredentialsPresent()) {
     try {
-      const script = await claudePlaywrightScript(tc, params);
-      if (script) return { engine: "claude", engineLabel: aiEngineLabel(), script };
+      const result = await claudePlaywrightScript(tc, params);
+      if (result && result.script) {
+        return { engine: "claude", engineLabel: result.engineLabel, script: result.script };
+      }
     } catch (error) {
       console.error("[automate] AI script generation failed, using built-in engine:", error);
     }

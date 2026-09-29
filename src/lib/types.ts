@@ -33,6 +33,8 @@ export interface RequirementAnalysis {
   documentName: string;
   /** Which engine produced this analysis — Claude AI or the built-in rule engine. */
   engine: "claude" | "builtin";
+  /** Descriptive engine name (e.g. GLM AI, OpenRouter AI, Built-in Rule Engine). */
+  engineLabel?: string;
   documentType: string;
   summary: string;
   modules: string[];

@@ -143,7 +143,7 @@ function StepRow({ step }: { step: StepResult }) {  const icon =
     );
 
   return (
-    <div className="flex gap-3 rounded-lg border border-slate-800 bg-slate-950/50 p-3">
+    <div className="flex flex-col sm:flex-row gap-3 rounded-lg border border-slate-800 bg-slate-950/50 p-3">
       <div className="min-w-0 flex-1">
         <div className="flex items-start gap-2">
           {icon}
@@ -165,7 +165,7 @@ function StepRow({ step }: { step: StepResult }) {  const icon =
         <img
           src={`data:image/png;base64,${step.screenshot}`}
           alt={`Screenshot after step ${step.index + 1}`}
-          className="hidden sm:block h-20 w-32 shrink-0 rounded-md border border-slate-800 object-cover object-top cursor-pointer hover:opacity-80 transition-opacity"
+          className="h-32 sm:h-20 w-full sm:w-32 shrink-0 rounded-md border border-slate-800 object-cover object-top cursor-pointer hover:opacity-80 transition-opacity"
           onClick={(e) => {
             const img = e.currentTarget;
             window.open(img.src, "_blank", "noopener");
@@ -326,7 +326,7 @@ export function AutomationCard({
         {/* Generated script */}
         {script && (
           <div className="space-y-3">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <span className="font-mono text-xs text-slate-400">{testCase.id}.spec.ts</span>
                 <Badge variant="secondary" className="text-[10px]">

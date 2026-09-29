@@ -69,7 +69,7 @@ export function FSDUploadCard({
         />
 
         {/* Chat-style FSD composer wrapped in the animated beam border */}
-        <BorderBeam size="md" colorVariant="colorful" className="mx-auto block max-w-[520px]">
+        <BorderBeam size="md" colorVariant="colorful" className="mx-auto block w-full max-w-[520px]">
           <div
             onDragOver={(e) => {
               e.preventDefault();
@@ -107,7 +107,7 @@ export function FSDUploadCard({
                 }}
               >
                 <FileText style={{ width: 13, height: 13, color: "#60a5fa", flexShrink: 0 }} />
-                <span style={{ maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                <span style={{ maxWidth: "clamp(100px, 36vw, 220px)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {selectedFile.name}
                 </span>
                 <span style={{ color: "#6b7280", flexShrink: 0 }}>{fileSizeLabel}</span>

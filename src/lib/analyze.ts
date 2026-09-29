@@ -1,5 +1,3 @@
-import type Anthropic from "@anthropic-ai/sdk";
-import { getAIClient, AI_MODEL } from "./model";
 import type {
   ExtractedRequirement,
   Priority,
@@ -151,6 +149,7 @@ export function builtinAnalyze(
   return {
     documentName,
     engine: "builtin",
+    engineLabel: "Built-in Rule Engine",
     documentType,
     summary,
     modules: modules.length ? modules : ["General"],
@@ -170,10 +169,12 @@ export function builtinAnalyze(
 // Claude AI analyzer (used automatically when ANTHROPIC_API_KEY is set)
 // ---------------------------------------------------------------------------
 
+import { aiCredentialsPresent, executeAICall } from "./model";
+
 const MAX_DOC_CHARS = 120_000;
 
 export function claudeCredentialsPresent(): boolean {
-  return Boolean(process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN);
+  return aiCredentialsPresent();
 }
 
 interface ClaudeAnalyzeOutput {
@@ -194,8 +195,6 @@ export async function claudeAnalyze(
   documentName: string,
   pages: number,
 ): Promise<RequirementAnalysis | null> {
-  const client = await getAIClient();
-
   const docText = text.length > MAX_DOC_CHARS
     ? `${text.slice(0, MAX_DOC_CHARS)}\n\n[...document truncated for length...]`
     : text;
@@ -208,26 +207,15 @@ export async function claudeAnalyze(
     "Extract every meaningful requirement (up to 40). Quote requirement text closely from the document.",
   ].join(" ");
 
-  const stream = client.messages.stream({
-    model: AI_MODEL,
-    max_tokens: 16000,
-    thinking: { type: "adaptive" },
+  const aiOutput = await executeAICall({
     system,
-    messages: [
-      {
-        role: "user",
-        content: `Analyze this document, uploaded as "${documentName}".\n\n<document>\n${docText}\n</document>`,
-      },
-    ],
+    userPrompt: `Analyze this document, uploaded as "${documentName}".\n\n<document>\n${docText}\n</document>`,
+    maxTokens: 16000,
   });
 
-  const response = await stream.finalMessage();
-  const raw = response.content
-    .filter((block): block is Anthropic.TextBlock => block.type === "text")
-    .map((block) => block.text)
-    .join("");
+  if (!aiOutput?.text) return null;
 
-  const parsed = parseJsonLoose<ClaudeAnalyzeOutput>(raw);
+  const parsed = parseJsonLoose<ClaudeAnalyzeOutput>(aiOutput.text);
   if (!parsed?.requirements?.length) return null;
 
   const words = text.split(/\s+/).filter(Boolean).length;
@@ -252,6 +240,7 @@ export async function claudeAnalyze(
   return {
     documentName,
     engine: "claude",
+    engineLabel: aiOutput.engineLabel,
     documentType: parsed.documentType || guessDocumentType(text),
     summary: parsed.summary || "",
     modules,

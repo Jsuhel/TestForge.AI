@@ -53,7 +53,7 @@ export function AnimatedTitleFM({
       <motion.h1
         initial="hidden"
         animate={state}
-        className="text-balance text-4xl font-bold tracking-tight text-white sm:text-5xl lg:text-6xl"
+        className="text-balance text-2xl xs:text-3xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-white px-2"
       >
         {words.map((word, i) => (
           <span key={`${word}-${i}`} className="inline-block overflow-hidden pb-1 -mb-1 align-bottom">

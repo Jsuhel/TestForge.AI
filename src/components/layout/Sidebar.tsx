@@ -8,6 +8,7 @@ import {
   Bug,
   BarChart3,
   ShieldCheck,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -127,7 +128,7 @@ export function Sidebar({
         )}
       >
         {/* Brand Header */}
-        <div className="flex h-16 items-center px-3.5 border-b border-slate-800/70 overflow-hidden">
+        <div className="flex h-16 items-center justify-between px-3.5 border-b border-slate-800/70 overflow-hidden">
           <div className="flex items-center gap-3 min-w-0">
             <div className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-indigo-700 shadow-md shadow-blue-500/20 text-white font-bold">
               <ShieldCheck className="h-5 w-5" />
@@ -148,6 +149,17 @@ export function Sidebar({
               </span>
             </div>
           </div>
+
+          {/* Close button visible on mobile */}
+          {mobileOpen && (
+            <button
+              onClick={onCloseMobile}
+              className="lg:hidden flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white shrink-0"
+              aria-label="Close Navigation"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
         </div>
 
         {/* Navigation Section — dynamic items based on pipeline progress */}
