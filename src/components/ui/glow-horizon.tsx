@@ -29,7 +29,7 @@ export default function GlowHorizonFM({ className, variant = "top" }: GlowHorizo
 
   return (
     <motion.div
-      className={"absolute w-full h-full pointer-events-none select-none overflow-hidden " + (className ?? "")}
+      className={"absolute w-full h-full pointer-events-none select-none " + (className ?? "")}
       style={{ isolation: "isolate" }}
       initial={{ [axis]: enterPct, [scaleAxis]: 1.5, opacity: 0, filter: "blur(15px)" }}
       animate={{ [axis]: restPct,  [scaleAxis]: 1,   opacity: 1, filter: "blur(0px)"  }}
