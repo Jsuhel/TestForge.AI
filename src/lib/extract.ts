@@ -1,5 +1,5 @@
 import mammoth from "mammoth";
-import { PDFParse } from "pdf-parse";
+import { extractText as extractPdfText, getDocumentProxy } from "unpdf";
 
 export interface ExtractedText {
   text: string;
@@ -17,13 +17,14 @@ export async function extractText(
   const lower = filename.toLowerCase();
 
   if (lower.endsWith(".pdf")) {
-    const parser = new PDFParse({ data: new Uint8Array(buffer) });
-    try {
-      const result = await parser.getText();
-      return { text: result.text ?? "", pages: result.total ?? 0 };
-    } finally {
-      await parser.destroy().catch(() => undefined);
-    }
+    const uint8 = new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
+    const pdf = await getDocumentProxy(uint8);
+    const { text, totalPages } = await extractPdfText(pdf, { mergePages: true });
+    const content = (Array.isArray(text) ? text.join("\n\n") : text) ?? "";
+    return {
+      text: content,
+      pages: totalPages ?? 1,
+    };
   }
 
   if (lower.endsWith(".docx")) {

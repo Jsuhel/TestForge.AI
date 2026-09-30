@@ -51,20 +51,32 @@ export default function DashboardPage() {
       formData.append("file", selectedFile);
 
       const response = await fetch("/api/analyze", { method: "POST", body: formData });
-      const data = await response.json();
+      let data: { error?: string } | null = null;
+      try {
+        data = await response.json();
+      } catch {
+        // Response was not JSON
+      }
 
       if (!response.ok) {
-        setError(data?.error ?? "Failed to analyze the document. Please try again.");
+        setError(
+          data?.error ??
+            `Failed to analyze the document (${response.status}: ${response.statusText || "Server Error"}).`,
+        );
         setPhase("upload");
         return;
       }
 
-      setAnalysis(data as RequirementAnalysis);
+      setAnalysis(data as unknown as RequirementAnalysis);
       setTestCases([]);
       setPhase("analyzed");
       requestAnimationFrame(() => scrollToSection("analysis-section"));
-    } catch {
-      setError("Network error while analyzing the document. Is the server running?");
+    } catch (err) {
+      setError(
+        err instanceof Error && err.message
+          ? `Analysis request failed: ${err.message}`
+          : "Network error while analyzing the document. Please check your connection.",
+      );
       setPhase("upload");
     }
   };
@@ -80,21 +92,38 @@ export default function DashboardPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ analysis }),
       });
-      const data = await response.json();
+      let data: {
+        error?: string;
+        testCases?: TestCase[];
+        engine?: RequirementAnalysis["engine"];
+        engineLabel?: string;
+      } | null = null;
+      try {
+        data = await response.json();
+      } catch {
+        // Response was not JSON
+      }
 
       if (!response.ok) {
-        setError(data?.error ?? "Failed to generate test cases. Please try again.");
+        setError(
+          data?.error ??
+            `Failed to generate test cases (${response.status}: ${response.statusText || "Server Error"}).`,
+        );
         setPhase("analyzed");
         return;
       }
 
-      setTestCases(data.testCases as TestCase[]);
-      setTestEngine(data.engine ?? "builtin");
-      setTestEngineLabel(data.engineLabel ?? "AI");
+      setTestCases((data?.testCases as TestCase[]) ?? []);
+      setTestEngine(data?.engine ?? "builtin");
+      setTestEngineLabel(data?.engineLabel ?? "AI");
       setPhase("generated");
       requestAnimationFrame(() => scrollToSection("testcases-section"));
-    } catch {
-      setError("Network error while generating test cases. Please try again.");
+    } catch (err) {
+      setError(
+        err instanceof Error && err.message
+          ? `Generation request failed: ${err.message}`
+          : "Network error while generating test cases. Please try again.",
+      );
       setPhase("analyzed");
     }
   };

@@ -1,6 +1,9 @@
 import { extractText } from "@/lib/extract";
 import { analyzeDocument } from "@/lib/analyze";
 
+export const runtime = "nodejs";
+export const maxDuration = 60;
+
 const MAX_FILE_MB = 25;
 const SUPPORTED_EXTENSIONS = [".pdf", ".docx", ".txt", ".md"];
 
