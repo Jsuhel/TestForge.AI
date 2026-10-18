@@ -77,6 +77,32 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
 async function launchBrowser(headed: boolean) {
   // Lazy import — see the note at the top of this file.
   const { chromium } = await import("playwright");
+
+  // Remote cloud browser (Browserless, BrowserStack, self-hosted, …): lets
+  // serverless deployments run real automations — the function only holds an
+  // outbound WebSocket, no local browser binaries needed. The live narration
+  // and per-step screenshots below are the "headed" view.
+  const remoteWs = (process.env.REMOTE_BROWSER_WS ?? "").trim();
+  if (remoteWs) {
+    let lastError: unknown;
+    for (const attempt of [
+      { how: "CDP", run: () => chromium.connectOverCDP(remoteWs, { timeout: 30_000 }) },
+      { how: "Playwright protocol", run: () => chromium.connect(remoteWs, { timeout: 30_000 }) },
+    ]) {
+      try {
+        const browser = await withTimeout(attempt.run(), 35_000, `remote browser (${attempt.how})`);
+        return { browser, label: "Remote cloud browser" };
+      } catch (error) {
+        lastError = error;
+      }
+    }
+    throw new RunError(
+      `Could not connect to the remote browser (REMOTE_BROWSER_WS). Check the endpoint URL/token and that the service is running.\n${
+        lastError instanceof Error ? lastError.message : String(lastError)
+      }`,
+    );
+  }
+
   // Headed on Windows: the installed system browsers (Edge always exists) are
   // the most stable choice for a visible window; the bundled Chromium is
   // preferred for headless runs. slowMo pauses after every action in headed
@@ -385,9 +411,12 @@ export async function runTestCase(
   const emit = (line: RunLogLine) => onEvent?.({ type: "log", line });
   const started = Date.now();
 
+  const usingRemote = Boolean((process.env.REMOTE_BROWSER_WS ?? "").trim());
   emit({
     kind: "info",
-    text: `Launching ${headed ? "a visible (headed)" : "a headless"} browser…`,
+    text: usingRemote
+      ? "Connecting to the remote cloud browser — watch each step live below (screenshots stream in)."
+      : `Launching ${headed ? "a visible (headed)" : "a headless"} browser…`,
   });
   const { browser, label } = await launchBrowser(headed);
   emit({ kind: "success", text: `${label} is up and running` });
@@ -400,7 +429,11 @@ export async function runTestCase(
     // If the visible window dies mid-run (crash, user closed it), say so once
     // instead of letting every later step fail with an opaque "Target closed".
     let browserDisconnected = false;
+    let intentionalClose = false;
     browser.on("disconnected", () => {
+      // Our own context/browser close at the end of a successful run also
+      // fires this — only report truly unexpected disconnects.
+      if (intentionalClose) return;
       browserDisconnected = true;
       emit({ kind: "error", text: "The browser window closed unexpectedly — remaining steps will be reported as failed." });
     });
@@ -491,6 +524,7 @@ export async function runTestCase(
     });
 
     emit({ kind: "info", text: "Closing the browser…" });
+    intentionalClose = true;
     await context.close();
 
     return {

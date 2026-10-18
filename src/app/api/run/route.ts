@@ -10,21 +10,23 @@ export const maxDuration = 300;
  * Vercel serverless functions cannot ship or launch real browser binaries.
  * Attempting it crashes the whole function (OOM / killed) instead of returning
  * the graceful launch error, so on serverless hosts we short-circuit BEFORE
- * touching Playwright and stream an honest, actionable error. Set
- * TESTFORGE_ENABLE_SERVERLESS_BROWSER=1 to override (e.g. on hosts that DO
- * bundle browsers, or when self-hosting behind a VERCEL-lookalike env).
+ * touching Playwright and stream an honest, actionable error — UNLESS a remote
+ * cloud browser is configured (REMOTE_BROWSER_WS), in which case real runs
+ * work from any serverless deployment. TESTFORGE_ENABLE_SERVERLESS_BROWSER=1
+ * overrides for hosts that DO bundle browsers.
  */
 function serverlessBrowserBlocked(): boolean {
-  return (
-    Boolean(process.env.VERCEL) && process.env.TESTFORGE_ENABLE_SERVERLESS_BROWSER !== "1"
-  );
+  if (process.env.TESTFORGE_ENABLE_SERVERLESS_BROWSER === "1") return false;
+  if ((process.env.REMOTE_BROWSER_WS ?? "").trim()) return false;
+  return Boolean(process.env.VERCEL);
 }
 
 const SERVERLESS_MESSAGE =
   "This deployment cannot open a real browser — serverless functions (Vercel/Netlify) have no browser binaries. " +
-  "Options: (1) run the app locally with `npm run dev` and execute the automation from your machine, " +
-  "(2) deploy the /api/run route on a container host (Railway, Fly.io, Render, a Docker VPS) where Playwright browsers can be installed, " +
-  "or (3) download the generated .spec.ts and run it with `npx playwright test` in your own repo.";
+  "To run automation right here: connect a cloud browser service (e.g. browserless.io — free tier available) by adding " +
+  "REMOTE_BROWSER_WS=wss://<endpoint>?token=<key> to this project's environment variables, then redeploy. " +
+  "Every step and screenshot streams live in the dashboard. Alternatives: run locally with `npm run dev`, " +
+  "or deploy on a container host (Railway, Fly.io, Render) where Playwright browsers can be installed.";
 
 function ndjsonErrorStream(message: string): Response {
   const encoder = new TextEncoder();
