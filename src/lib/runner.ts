@@ -1,4 +1,9 @@
-import { chromium } from "playwright";
+// Playwright is imported lazily inside launchBrowser(). A static import
+// crashes serverless hosts (Vercel) at module load — `playwright-core`'s
+// browsers.json is absent from the lambda bundle, so requiring the package
+// throws before any of our own graceful-error code can run. With the lazy
+// import, the route module loads cleanly everywhere and Playwright is only
+// touched when a real browser launch is actually attempted.
 import type { Locator, Page } from "playwright";
 import type { TestCase } from "./types";
 
@@ -70,6 +75,8 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
 }
 
 async function launchBrowser(headed: boolean) {
+  // Lazy import — see the note at the top of this file.
+  const { chromium } = await import("playwright");
   // Headed on Windows: the installed system browsers (Edge always exists) are
   // the most stable choice for a visible window; the bundled Chromium is
   // preferred for headless runs. slowMo pauses after every action in headed
