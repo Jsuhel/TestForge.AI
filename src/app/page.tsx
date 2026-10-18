@@ -3,8 +3,10 @@
 import React, { useState } from "react";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
+import { BrandFab } from "@/components/layout/BrandFab";
 import { FSDUploadCard } from "@/components/dashboard/FSDUploadCard";
 import { RequirementAnalysisCard } from "@/components/dashboard/RequirementAnalysisCard";
+import { FSDChatCard } from "@/components/dashboard/FSDChatCard";
 import { TestCasesCard } from "@/components/dashboard/TestCasesCard";
 import { AutomationCard } from "@/components/dashboard/AutomationCard";
 import GlowHorizonFM from "@/components/ui/glow-horizon";
@@ -256,6 +258,7 @@ export default function DashboardPage() {
       <Sidebar
         mobileOpen={mobileMenuOpen}
         onCloseMobile={() => setMobileMenuOpen(false)}
+        hasAnalysis={!!analysis}
         hasTestCases={phase === "generated" && testCases.length > 0}
         hasAutomationScript={!!automationScript || !!automationTc}
         hasRunResult={!!runResult}
@@ -316,6 +319,14 @@ export default function DashboardPage() {
             </section>
           )}
 
+          {/* FSD Chat — ask GLM clarifying questions about the analyzed document.
+              Keyed by document name so a new upload starts a fresh conversation. */}
+          {showAnalysis && analysis && (
+            <section id="chat-section" className="scroll-mt-20">
+              <FSDChatCard key={analysis.documentName} analysis={analysis} />
+            </section>
+          )}
+
           {/* Step 2: Generated Test Cases */}
           {phase === "generated" && testCases.length > 0 && (
             <section id="testcases-section" className="scroll-mt-20">
@@ -329,6 +340,19 @@ export default function DashboardPage() {
                   setTestCases((tcs) => tcs.map((t) => (t.id === updated.id ? updated : t)));
                   // Keep an open automation fold in sync with the edited scenario.
                   setAutomationTc((current) => (current?.id === updated.id ? updated : current));
+                }}
+                onAddTestCase={(tc) => setTestCases((tcs) => [...tcs, tc])}
+                onDeleteTestCase={(id) => {
+                  setTestCases((tcs) => tcs.filter((t) => t.id !== id));
+                  // Deleting the case being automated closes its fold too.
+                  if (automationTc?.id === id) {
+                    setAutomationTc(null);
+                    setAutomationScript(null);
+                    setAutomationError(null);
+                    setRunResult(null);
+                    setRunError(null);
+                    setRunLogs([]);
+                  }
                 }}
               />
             </section>
@@ -346,6 +370,7 @@ export default function DashboardPage() {
                 error={automationError}
                 onGenerate={handleGenerateScript}
                 onRun={handleRun}
+                onUpdateScript={(script) => setAutomationScript(script)}
                 running={running}
                 runResult={runResult}
                 runError={runError}
@@ -363,6 +388,9 @@ export default function DashboardPage() {
           )}
         </main>
       </div>
+
+      {/* Brand floating action button (replaces the Next.js dev-tools bubble) */}
+      <BrandFab />
     </div>
   );
 }

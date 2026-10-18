@@ -1,0 +1,9 @@
+Functional Specification Document — Login Module (e2e fixture)
+
+1. The system shall validate the username and password on the login page.
+2. The system shall display an error message when authentication fails.
+3. The system shall lock the account after 5 consecutive failed attempts.
+4. The system shall support password reset via registered email.
+
+User journeys:
+- Login: user opens login page, enters credentials, submits form, lands on dashboard.

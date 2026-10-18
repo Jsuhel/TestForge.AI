@@ -47,12 +47,18 @@ export type TestType = "Positive" | "Negative" | "Edge Case";
 
 export interface TestCase {
   id: string;
+  /** Full scenario statement, written in the "Verify by…" style. */
   title: string;
+  /** Short, meaningful title for the Test Summary column. */
+  summary?: string;
   module: string;
   type: TestType;
   priority: Priority;
   precondition: string;
   steps: string[];
+  /** Expected outcome, written in the "System should…" style. */
   expectedResult: string;
   requirementId: string;
+  /** Flagged FSD ambiguity/conflict for business confirmation (Reviewer Remarks). */
+  clarificationNote?: string;
 }

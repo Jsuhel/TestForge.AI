@@ -68,7 +68,7 @@ export function AnimatedTitleFM({
               }
             >
               {word}
-              {i < words.length - 1 ? " " : ""}
+              {i < words.length - 1 ? " " : ""}
             </motion.span>
           </span>
         ))}

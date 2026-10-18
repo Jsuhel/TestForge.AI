@@ -7,7 +7,7 @@ import type Anthropic from "@anthropic-ai/sdk";
  *
  * Resolution order:
  *   1. TESTFORGE_MODEL                — explicit override for this app
- *   2. ANTHROPIC_DEFAULT_OPUS_MODEL   — opus-tier mapping (e.g. glm-5.1 on Z.AI)
+ *   2. ANTHROPIC_DEFAULT_OPUS_MODEL   — opus-tier mapping (e.g. glm-5.2 on Z.AI)
  *   3. "claude-opus-5"                — first-party Anthropic default
  */
 export const AI_MODEL =

@@ -1,6 +1,11 @@
 import { runTestCase } from "@/lib/runner";
 import type { TestCase } from "@/lib/types";
 
+export const runtime = "nodejs";
+// A full browser run takes minutes — without this Vercel defaults to the plan
+// minimum (10s on Hobby) and kills the run almost immediately.
+export const maxDuration = 300;
+
 export async function POST(request: Request) {
   let body: {
     testCase?: TestCase;

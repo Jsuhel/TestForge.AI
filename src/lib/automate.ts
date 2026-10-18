@@ -46,6 +46,20 @@ const FIELD_LABELS: Record<string, Omit<PrerequisiteField, "key">> = {
     reason: "The flow submits a value the script needs to enter.",
     defaultValue: "5000",
   },
+  fullName: {
+    label: "Applicant / user full name",
+    placeholder: "Test User",
+    type: "text",
+    reason: "The flow enters a person's name into a name field.",
+    defaultValue: "Test User",
+  },
+  phone: {
+    label: "Mobile / phone number",
+    placeholder: "+15550123456",
+    type: "text",
+    reason: "The flow enters a contact number.",
+    defaultValue: "+15550123456",
+  },
   testEmail: {
     label: "Invalid email (for negative testing)",
     placeholder: "not-an-email",
@@ -62,31 +76,50 @@ const FIELD_LABELS: Record<string, Omit<PrerequisiteField, "key">> = {
   },
 };
 
-/** Auto-detect what inputs a test case needs to run automated. */
+/** Auto-detect what inputs a test case needs to run automated.
+ *
+ *  Scenarios written in the "Verify by…" style are long and descriptive, so a
+ *  bare keyword anywhere in the title produces false positives (every sentence
+ *  of a loan FSD mentions "loan"). Matching is therefore split:
+ *  - STEPS carry the real actions — matched with specific field wording.
+ *  - TITLE/PRECONDITION/EXPECTED only trigger login intent, which a sentence
+ *    like "logging in via existing retail login" genuinely implies.
+ */
 export function detectPrerequisites(tc: TestCase): PrerequisiteField[] {
-  const haystack = [tc.title, tc.precondition, tc.expectedResult, ...tc.steps]
-    .join(" ")
-    .toLowerCase();
+  const stepsText = tc.steps.join(" ").toLowerCase();
+  const contextText = [tc.title, tc.precondition, tc.expectedResult].join(" ").toLowerCase();
+  const allText = `${contextText} ${stepsText}`;
 
   const keys: string[] = ["url"];
 
-  if (/login|log in|sign in|user account|credentials|register/.test(haystack)) {
-    if (!keys.includes("username")) keys.push("username", "password");
-  }
-  if (/email|username/.test(haystack) && !keys.includes("username")) {
+  // Credentials — only when a login is actually part of the flow.
+  if (/log ?in|sign ?in|login|authenticat|credentials|user account|register/.test(allText)) {
+    keys.push("username", "password");
+  } else if (/\bemail\b|username/.test(stepsText)) {
+    // An email field without login intent (e.g. a contact form) still needs a value.
     keys.push("username");
   }
-  if (/invalid email|invalid .*format|not an email/.test(haystack) && tc.type === "Negative") {
+
+  if (/\b(full ?name|first name|last name|applicant name|name field)\b/.test(stepsText)) {
+    keys.push("fullName");
+  }
+  if (/\b(phone|mobile|contact number|telephone)\b/.test(stepsText)) {
+    keys.push("phone");
+  }
+  if (/invalid email|invalid .*format|not an email/.test(allText) && tc.type === "Negative") {
     keys.push("testEmail");
   }
-  if (/amount|value|price|quantity|loan|deposit|payment/.test(haystack)) {
+  // Amount — the word "amount" (or a sibling) as a fillable value, not every
+  // mention of the business domain ("loan application" alone asks for nothing).
+  if (/\b(amount|price|quantity|deposit|payment|income)\b/.test(stepsText) || /loan amount|sanctioned amount|eligible amount/.test(allText)) {
     keys.push("amount");
   }
-  if (/upload|attach|document\b/.test(haystack)) {
+  if (/upload|attach|browse.*file|choose file/.test(stepsText)) {
     keys.push("fileName");
   }
 
-  return keys.map((key) => ({ key, ...FIELD_LABELS[key] }));
+  const unique = [...new Set(keys)];
+  return unique.map((key) => ({ key, ...FIELD_LABELS[key] }));
 }
 
 // ---------------------------------------------------------------------------
@@ -198,6 +231,8 @@ function paramsBlock(keys: string[], params: Record<string, string>): string[] {
     url: "APP_URL",
     username: "APP_USERNAME",
     password: "APP_PASSWORD",
+    fullName: "APP_FULL_NAME",
+    phone: "APP_PHONE",
     amount: "APP_AMOUNT",
     testEmail: "APP_INVALID_EMAIL",
     fileName: "APP_SAMPLE_FILE",

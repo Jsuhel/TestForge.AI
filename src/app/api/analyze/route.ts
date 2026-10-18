@@ -2,7 +2,9 @@ import { extractText } from "@/lib/extract";
 import { analyzeDocument } from "@/lib/analyze";
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+// Vercel clamps this to the plan limit (60s Hobby / 300s+ Pro). AI analysis of a
+// large document can exceed 60s, which otherwise kills the function mid-request.
+export const maxDuration = 300;
 
 const MAX_FILE_MB = 25;
 const SUPPORTED_EXTENSIONS = [".pdf", ".docx", ".txt", ".md"];

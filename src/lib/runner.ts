@@ -58,31 +58,70 @@ function friendlyError(error: unknown, context: string): string {
   return `${firstLine.trim().slice(0, 180)}${hint}`;
 }
 
+/** Race a launch promise with a hard timeout so a wedged browser binary can
+ *  never hang the whole run — the next candidate is tried instead. */
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(`${label} launch timed out after ${ms / 1000}s`)), ms),
+    ),
+  ]);
+}
+
 async function launchBrowser(headed: boolean) {
-  // Bundled Chromium first; fall back to installed Edge/Chrome (Windows always has Edge).
-  // In headed mode a short slowMo pauses after every action so a human can
-  // actually watch each step being performed in the visible window.
-  const candidates: Array<{ label: string; options: Record<string, unknown> }> = [
-    { label: "Chromium", options: {} },
-    { label: "Edge", options: { channel: "msedge" } },
-    { label: "Chrome", options: { channel: "chrome" } },
-  ];
+  // Headed on Windows: the installed system browsers (Edge always exists) are
+  // the most stable choice for a visible window; the bundled Chromium is
+  // preferred for headless runs. slowMo pauses after every action in headed
+  // mode so a human can actually watch each step being performed.
+  const candidates: Array<{ label: string; options: Record<string, unknown> }> = headed
+    ? [
+        { label: "Edge", options: { channel: "msedge" } },
+        { label: "Chrome", options: { channel: "chrome" } },
+        {
+          label: "Chromium",
+          options: { args: ["--disable-gpu", "--disable-dev-shm-usage"] },
+        },
+      ]
+    : [
+        { label: "Chromium", options: {} },
+        { label: "Edge", options: { channel: "msedge" } },
+        { label: "Chrome", options: { channel: "chrome" } },
+      ];
   const errors: string[] = [];
   for (const candidate of candidates) {
     try {
-      const browser = await chromium.launch({
-        headless: !headed,
-        slowMo: headed ? 300 : 0,
-        ...candidate.options,
-      });
+      const browser = await withTimeout(
+        chromium.launch({
+          headless: !headed,
+          slowMo: headed ? 300 : 0,
+          ...candidate.options,
+        }),
+        35_000,
+        candidate.label,
+      );
       return { browser, label: candidate.label };
     } catch (error) {
       errors.push(`${candidate.label}: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
+  // Serverless hosts (Vercel/Netlify functions) cannot ship or launch bundled
+  // browser binaries — give an honest explanation instead of install advice.
+  const serverlessHint = process.env.VERCEL
+    ? "Serverless functions on Vercel cannot launch a real browser. Deploy the /api/run route on a container host (Railway, Fly.io, a Docker VPS) or run tests locally with `npm run dev`."
+    : 'Run "npx playwright install chromium" first.';
   throw new RunError(
-    `No browser could be launched. Run "npx playwright install chromium" first.\n${errors.join("\n")}`,
+    `No browser could be launched. ${serverlessHint}\n${errors.join("\n")}`,
   );
+}
+
+/** Compact JPEG screenshots — ~10x lighter than PNG for the streamed report,
+ *  which keeps long multi-step runs from bloating the NDJSON stream. */
+async function shoot(page: Page): Promise<string | undefined> {
+  return page
+    .screenshot({ type: "jpeg", quality: 60 })
+    .then((b) => b.toString("base64"))
+    .catch(() => undefined);
 }
 
 /** Pick the first empty visible text-ish input so successive fills don't overwrite each other. */
@@ -351,6 +390,14 @@ export async function runTestCase(
     const page = await context.newPage();
     emit({ kind: "info", text: "New page opened (1280×800) — watching for errors…" });
 
+    // If the visible window dies mid-run (crash, user closed it), say so once
+    // instead of letting every later step fail with an opaque "Target closed".
+    let browserDisconnected = false;
+    browser.on("disconnected", () => {
+      browserDisconnected = true;
+      emit({ kind: "error", text: "The browser window closed unexpectedly — remaining steps will be reported as failed." });
+    });
+
     // Surface anything the page itself throws or logs, as it happens.
     let reportedPageErrors = 0;
     page.on("pageerror", (error) => {
@@ -375,8 +422,9 @@ export async function runTestCase(
       onEvent?.({ type: "step-start", index: i, total: tc.steps.length, step });
       emit({ kind: "action", text: `Step ${i + 1}/${tc.steps.length}: ${step}` });
       try {
+        if (browserDisconnected) throw new Error("browser was closed before this step could run");
         const detail = await executeStep(page, step, params, state, emit);
-        const screenshot = (await page.screenshot({ type: "png" })).toString("base64");
+        const screenshot = await shoot(page);
         const result: StepResult = { index: i, step, status: "passed", detail, screenshot };
         steps.push(result);
         emit({ kind: "success", text: detail });
@@ -385,10 +433,7 @@ export async function runTestCase(
         // The step's target isn't on the page (flow already past it) — skip it;
         // only genuine failures (timeout, wrong page, broken control) fail the run.
         if (error instanceof StepNotApplicableError) {
-          const screenshot = await page
-            .screenshot({ type: "png" })
-            .then((b) => b.toString("base64"))
-            .catch(() => undefined);
+          const screenshot = await shoot(page);
           const result: StepResult = { index: i, step, status: "skipped", detail: error.message, screenshot };
           steps.push(result);
           emit({ kind: "info", text: `Skipped — ${error.message}` });
@@ -397,12 +442,11 @@ export async function runTestCase(
         }
 
         anyFailed = true;
-        const detail = friendlyError(error, /fill/i.test(step) ? "the input field" : "the control");
+        const detail =
+          (browserDisconnected ? "browser closed unexpectedly — " : "") +
+          friendlyError(error, /fill/i.test(step) ? "the input field" : "the control");
         emit({ kind: "error", text: detail });
-        const screenshot = await page
-          .screenshot({ type: "png" })
-          .then((b) => b.toString("base64"))
-          .catch(() => undefined);
+        const screenshot = await shoot(page);
         const result: StepResult = { index: i, step, status: "failed", detail, screenshot };
         steps.push(result);
         onEvent?.({ type: "step-result", result });
@@ -430,10 +474,7 @@ export async function runTestCase(
       kind: expectedStatus === "passed" ? "success" : "error",
       text: `Expected result — ${expectedDetail}`,
     });
-    const expectedScreenshot = await page
-      .screenshot({ type: "png" })
-      .then((b) => b.toString("base64"))
-      .catch(() => undefined);
+    const expectedScreenshot = await shoot(page);
     steps.push({
       index: tc.steps.length,
       step: `Expected result: ${tc.expectedResult}`,

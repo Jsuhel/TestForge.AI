@@ -2,7 +2,8 @@ import { generatePlaywrightScript } from "@/lib/automate";
 import type { TestCase } from "@/lib/types";
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+// AI script generation can take over a minute with the large model.
+export const maxDuration = 300;
 
 export async function POST(request: Request) {
   try {

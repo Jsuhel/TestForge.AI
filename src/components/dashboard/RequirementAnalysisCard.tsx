@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Sparkles, RotateCcw, Loader2, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { RichText } from "@/components/ui/rich-text";
 import type { RequirementAnalysis } from "@/lib/types";
 
 export interface RequirementAnalysisCardProps {
@@ -145,72 +146,6 @@ function composeExplanation(analysis: RequirementAnalysis): string {
   );
 
   return parts.join("\n\n");
-}
-
-/** Minimal markdown renderer: ### headings, "• " bullets, **bold** and *italic* spans. */
-function RichText({ text }: { text: string }) {
-  const blocks = text.split("\n\n");
-  return (
-    <>
-      {blocks.map((block, i) => {
-        if (block.startsWith("### ")) {
-          return (
-            <h4
-              key={i}
-              className="font-display text-sm font-semibold text-white mt-6 mb-2 pb-1.5 border-b border-slate-800/80"
-            >
-              {renderInline(block.slice(4))}
-            </h4>
-          );
-        }
-        const lines = block.split("\n");
-        const isBulletList = lines.every((l) => l.startsWith("• "));
-        if (isBulletList) {
-          return (
-            <ul key={i} className="my-2 space-y-1.5">
-              {lines.map((line, j) => (
-                <li key={j} className="flex items-start gap-2.5">
-                  <span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-blue-400/80" />
-                  <span className="leading-relaxed">{renderInline(line.slice(2))}</span>
-                </li>
-              ))}
-            </ul>
-          );
-        }
-        return (
-          <p key={i} className="my-2 leading-relaxed">
-            {renderInline(block)}
-          </p>
-        );
-      })}
-    </>
-  );
-}
-
-function renderInline(text: string): React.ReactNode[] {
-  // Split on **bold** first, then *italic* inside plain segments.
-  return text.split(/(\*\*[^*]+\*\*)/g).map((segment, i) => {
-    if (segment.startsWith("**") && segment.endsWith("**")) {
-      return (
-        <strong key={i} className="font-semibold text-white">
-          {segment.slice(2, -2)}
-        </strong>
-      );
-    }
-    return (
-      <React.Fragment key={i}>
-        {segment.split(/(\*[^*]+\*)/g).map((seg, j) =>
-          seg.startsWith("*") && seg.endsWith("*") && seg.length > 2 ? (
-            <em key={j} className="not-italic font-mono text-[11px] text-blue-400/70">
-              {seg.slice(1, -1)}
-            </em>
-          ) : (
-            <React.Fragment key={j}>{seg}</React.Fragment>
-          ),
-        )}
-      </React.Fragment>
-    );
-  });
 }
 
 const CHARS_PER_TICK = 16;

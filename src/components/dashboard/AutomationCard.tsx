@@ -19,10 +19,12 @@ import {
   Globe,
   Timer,
   Monitor,
+  Pencil,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { ExecutionReport } from "@/components/dashboard/ExecutionReport";
 import { detectPrerequisites } from "@/lib/automate";
 import type { PrerequisiteField } from "@/lib/automate";
 import type { RunLogLine, RunResult, StepResult } from "@/lib/runner";
@@ -38,6 +40,8 @@ export interface AutomationCardProps {
   error?: string | null;
   onGenerate: (params: Record<string, string>) => void;
   onRun: (params: Record<string, string>, headed: boolean) => void;
+  /** Persist a manual edit of the generated script. */
+  onUpdateScript: (script: string) => void;
   running: boolean;
   runResult: RunResult | null;
   runError?: string | null;
@@ -163,7 +167,7 @@ function StepRow({ step }: { step: StepResult }) {  const icon =
       </div>
       {step.screenshot && (
         <img
-          src={`data:image/png;base64,${step.screenshot}`}
+          src={`data:image/jpeg;base64,${step.screenshot}`}
           alt={`Screenshot after step ${step.index + 1}`}
           className="h-32 sm:h-20 w-full sm:w-32 shrink-0 rounded-md border border-slate-800 object-cover object-top cursor-pointer hover:opacity-80 transition-opacity"
           onClick={(e) => {
@@ -185,6 +189,7 @@ export function AutomationCard({
   error,
   onGenerate,
   onRun,
+  onUpdateScript,
   running,
   runResult,
   runError,
@@ -195,6 +200,15 @@ export function AutomationCard({
   const [copied, setCopied] = useState(false);
   // Visible browser by default — the run opens a real window you can watch.
   const [headed, setHeaded] = useState(true);
+  // While null the script is read-only; a string means the editor is open.
+  const [draftScript, setDraftScript] = useState<string | null>(null);
+
+  // A regenerated script or a different test case invalidates the draft.
+  useEffect(() => {
+    setDraftScript(null);
+  }, [script, testCase.id]);
+
+  const effectiveScript = draftScript ?? script;
 
   // Prerequisites derive straight from the test case; the form resets when a
   // different row is automated (state adjusted during render, not in an effect).
@@ -210,9 +224,9 @@ export function AutomationCard({
   }
 
   const handleCopy = async () => {
-    if (!script) return;
+    if (!effectiveScript) return;
     try {
-      await navigator.clipboard.writeText(script);
+      await navigator.clipboard.writeText(effectiveScript);
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch {
@@ -220,9 +234,17 @@ export function AutomationCard({
     }
   };
 
+  const handleSaveScript = () => {
+    if (draftScript === null) return;
+    onUpdateScript(draftScript);
+    // The parent's state change re-triggers the reset effect above; clear
+    // locally too so the editor closes even if the script is unchanged.
+    setDraftScript(null);
+  };
+
   const handleDownload = () => {
-    if (!script) return;
-    const blob = new Blob([script], { type: "text/plain;charset=utf-8" });
+    if (!effectiveScript) return;
+    const blob = new Blob([effectiveScript], { type: "text/plain;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
@@ -327,14 +349,42 @@ export function AutomationCard({
         {script && (
           <div className="space-y-3">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <span className="font-mono text-xs text-slate-400">{testCase.id}.spec.ts</span>
                 <Badge variant="secondary" className="text-[10px]">
                   {engine === "claude" ? <Sparkles className="h-3 w-3" /> : <Cpu className="h-3 w-3" />}
                   {engineLabel ?? (engine === "claude" ? "Claude AI" : "Built-in Engine")}
                 </Badge>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                {draftScript === null ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setDraftScript(script)}
+                    title="Edit the generated script"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                    Edit
+                  </Button>
+                ) : (
+                  <>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setDraftScript(null)}
+                    >
+                      <X className="h-3.5 w-3.5" />
+                      Cancel
+                    </Button>
+                    <Button type="button" variant="primary" size="sm" onClick={handleSaveScript}>
+                      <Check className="h-3.5 w-3.5" />
+                      Save Changes
+                    </Button>
+                  </>
+                )}
                 <Button type="button" variant="outline" size="sm" onClick={handleCopy}>
                   {copied ? (
                     <Check className="h-3.5 w-3.5 text-emerald-400" />
@@ -358,21 +408,36 @@ export function AutomationCard({
                 <span className="ml-2 font-mono text-[10px] text-slate-500">
                   {testCase.id}.spec.ts — Playwright / TypeScript
                 </span>
+                {draftScript !== null && (
+                  <span className="ml-auto font-mono text-[10px] text-blue-400">
+                    editing
+                  </span>
+                )}
               </div>
-              <pre className="p-4 overflow-x-auto text-[11px] leading-relaxed font-mono max-h-[480px] overflow-y-auto">
-                <code>
-                  {script.split("\n").map((line, i) => (
-                    <div key={i} className="flex">
-                      <span className="w-8 shrink-0 select-none text-right pr-3 text-slate-700">
-                        {i + 1}
-                      </span>
-                      <span className="whitespace-pre text-slate-300">
-                        <CodeLine line={line} />
-                      </span>
-                    </div>
-                  ))}
-                </code>
-              </pre>
+              {draftScript === null ? (
+                <pre className="p-4 overflow-x-auto text-[11px] leading-relaxed font-mono max-h-[480px] overflow-y-auto">
+                  <code>
+                    {script.split("\n").map((line, i) => (
+                      <div key={i} className="flex">
+                        <span className="w-8 shrink-0 select-none text-right pr-3 text-slate-700">
+                          {i + 1}
+                        </span>
+                        <span className="whitespace-pre text-slate-300">
+                          <CodeLine line={line} />
+                        </span>
+                      </div>
+                    ))}
+                  </code>
+                </pre>
+              ) : (
+                <textarea
+                  value={draftScript}
+                  onChange={(e) => setDraftScript(e.target.value)}
+                  spellCheck={false}
+                  aria-label={`Edit ${testCase.id}.spec.ts`}
+                  className="block w-full min-h-[420px] max-h-[560px] overflow-y-auto resize-y bg-black px-4 py-4 font-mono text-[11px] leading-relaxed text-slate-300 focus:outline-none focus:ring-1 focus:ring-inset focus:ring-blue-500/40"
+                />
+              )}
             </div>
 
             <p className="text-[11px] text-slate-500">
@@ -473,6 +538,10 @@ export function AutomationCard({
                   <StepRow key={step.index} step={step} />
                 ))}
               </div>
+
+              {/* Failure report — which steps failed, why, and the screenshot
+                  of where the logic broke; downloadable as one HTML file. */}
+              <ExecutionReport testCase={testCase} runResult={runResult} />
             </div>
           )}
         </div>
