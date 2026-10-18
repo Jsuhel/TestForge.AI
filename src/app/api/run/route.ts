@@ -6,6 +6,38 @@ export const runtime = "nodejs";
 // minimum (10s on Hobby) and kills the run almost immediately.
 export const maxDuration = 300;
 
+/**
+ * Vercel serverless functions cannot ship or launch real browser binaries.
+ * Attempting it crashes the whole function (OOM / killed) instead of returning
+ * the graceful launch error, so on serverless hosts we short-circuit BEFORE
+ * touching Playwright and stream an honest, actionable error. Set
+ * TESTFORGE_ENABLE_SERVERLESS_BROWSER=1 to override (e.g. on hosts that DO
+ * bundle browsers, or when self-hosting behind a VERCEL-lookalike env).
+ */
+function serverlessBrowserBlocked(): boolean {
+  return (
+    Boolean(process.env.VERCEL) && process.env.TESTFORGE_ENABLE_SERVERLESS_BROWSER !== "1"
+  );
+}
+
+const SERVERLESS_MESSAGE =
+  "This deployment cannot open a real browser — serverless functions (Vercel/Netlify) have no browser binaries. " +
+  "Options: (1) run the app locally with `npm run dev` and execute the automation from your machine, " +
+  "(2) deploy the /api/run route on a container host (Railway, Fly.io, Render, a Docker VPS) where Playwright browsers can be installed, " +
+  "or (3) download the generated .spec.ts and run it with `npx playwright test` in your own repo.";
+
+function ndjsonErrorStream(message: string): Response {
+  const encoder = new TextEncoder();
+  const body = `${JSON.stringify({ type: "error", message })}\n`;
+  return new Response(encoder.encode(body), {
+    headers: {
+      "Content-Type": "application/x-ndjson; charset=utf-8",
+      "Cache-Control": "no-cache, no-transform",
+      "X-Accel-Buffering": "no",
+    },
+  });
+}
+
 export async function POST(request: Request) {
   let body: {
     testCase?: TestCase;
@@ -40,6 +72,12 @@ export async function POST(request: Request) {
       { error: "A valid application URL (starting with http:// or https://) is required to run the test." },
       { status: 400 },
     );
+  }
+
+  // Serverless hosts can't launch browsers — bail out before Playwright is
+  // touched so the function returns a clear error instead of crashing.
+  if (serverlessBrowserBlocked()) {
+    return ndjsonErrorStream(SERVERLESS_MESSAGE);
   }
 
   const cleanParams: Record<string, string> = { url };

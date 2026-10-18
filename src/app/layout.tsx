@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { EngineStatusBanner } from "@/components/layout/EngineStatusBanner";
 import "./globals.css";
 
 // One sans-serif family for the entire product — Geist Sans — with Geist Mono
@@ -31,6 +32,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} min-h-screen bg-[#090d16] text-slate-100 antialiased font-sans`}
       >
+        <EngineStatusBanner />
         {children}
       </body>
     </html>
