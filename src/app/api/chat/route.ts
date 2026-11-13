@@ -1,14 +1,9 @@
 import { executeAICall } from "@/lib/model";
-import type { RequirementAnalysis } from "@/lib/types";
+import type { ChatMessage, RequirementAnalysis } from "@/lib/types";
 
 export const runtime = "nodejs";
 // GLM answers usually land in 5-20s, but leave headroom for long FSDs.
 export const maxDuration = 300;
-
-interface ChatMessage {
-  role: "user" | "assistant";
-  content: string;
-}
 
 const MAX_HISTORY = 10; // last N turns sent along so the AI keeps context
 const MAX_QUESTION_CHARS = 2000;

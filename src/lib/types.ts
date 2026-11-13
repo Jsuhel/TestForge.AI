@@ -43,6 +43,12 @@ export interface RequirementAnalysis {
   stats: AnalysisStats;
 }
 
+/** One turn in the FSD chat — shared by the UI card and the chat API. */
+export interface ChatMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
 export type TestType = "Positive" | "Negative" | "Edge Case";
 
 export interface TestCase {

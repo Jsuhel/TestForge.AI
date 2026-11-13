@@ -68,7 +68,7 @@ export function RichText({ text }: { text: string }) {
                     {head.map((cell, j) => (
                       <th
                         key={j}
-                        className="border-b border-slate-700/70 px-3 py-2 font-semibold text-white whitespace-nowrap"
+                        className="border-b border-zinc-700/70 px-3 py-2 font-semibold text-white whitespace-nowrap"
                       >
                         {renderInline(cell)}
                       </th>
@@ -79,7 +79,7 @@ export function RichText({ text }: { text: string }) {
                   {body.map((row, r) => (
                     <tr key={r} className="align-top">
                       {row.map((cell, j) => (
-                        <td key={j} className="border-b border-slate-800/60 px-3 py-2 text-slate-300">
+                        <td key={j} className="border-b border-zinc-800/60 px-3 py-2 text-zinc-300">
                           {renderInline(cell)}
                         </td>
                       ))}
@@ -95,7 +95,7 @@ export function RichText({ text }: { text: string }) {
           return (
             <h4
               key={i}
-              className="font-display text-sm font-semibold text-white mt-6 mb-2 pb-1.5 border-b border-slate-800/80"
+              className="font-display text-sm font-semibold text-white mt-6 mb-2 pb-1.5 border-b border-zinc-800/80"
             >
               {renderInline(block.slice(4))}
             </h4>

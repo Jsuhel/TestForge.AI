@@ -108,7 +108,7 @@ function FailureBlock({ step }: { step: StepResult }) {
         <img
           src={`data:image/jpeg;base64,${step.screenshot}`}
           alt={`Screenshot at failing step ${step.index + 1}`}
-          className="w-full rounded-md border border-slate-800 cursor-pointer hover:opacity-90 transition-opacity"
+          className="w-full rounded-md border border-zinc-800 cursor-pointer hover:opacity-90 transition-opacity"
           onClick={(e) => {
             const img = e.currentTarget;
             window.open(img.src, "_blank", "noopener");
@@ -125,7 +125,7 @@ export function ExecutionReport({ testCase, runResult }: ExecutionReportProps) {
   const skipped = runResult.steps.filter((s) => s.status === "skipped").length;
 
   return (
-    <div className="rounded-xl border border-slate-800 bg-slate-950/40 p-4 space-y-4" data-testid="execution-report">
+    <div className="rounded-xl border border-zinc-800 bg-zinc-950/40 p-4 space-y-4" data-testid="execution-report">
       {/* Header row */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div className="flex items-start gap-2.5">
@@ -141,27 +141,27 @@ export function ExecutionReport({ testCase, runResult }: ExecutionReportProps) {
           </div>
           <div>
             <p className="text-sm font-semibold text-white">Execution Report</p>
-            <p className="text-[11px] text-slate-500 leading-snug flex flex-wrap items-center gap-x-2">
+            <p className="text-[11px] text-zinc-500 leading-snug flex flex-wrap items-center gap-x-2">
               <Timer className="h-3 w-3 inline" />
               {(runResult.durationMs / 1000).toFixed(1)}s
-              <span className="text-slate-700">·</span>
+              <span className="text-zinc-700">·</span>
               <CheckCircle2 className="h-3 w-3 inline text-emerald-400" />
               {passed} passed
               {failedSteps.length > 0 && (
                 <>
-                  <span className="text-slate-700">·</span>
+                  <span className="text-zinc-700">·</span>
                   <XCircle className="h-3 w-3 inline text-rose-400" />
                   {failedSteps.length} failed
                 </>
               )}
               {skipped > 0 && (
                 <>
-                  <span className="text-slate-700">·</span>
-                  <MinusCircle className="h-3 w-3 inline text-slate-500" />
+                  <span className="text-zinc-700">·</span>
+                  <MinusCircle className="h-3 w-3 inline text-zinc-500" />
                   {skipped} skipped
                 </>
               )}
-              <span className="text-slate-700">·</span>
+              <span className="text-zinc-700">·</span>
               <Globe className="h-3 w-3 inline" />
               <span className="font-mono truncate">{runResult.url}</span>
             </p>

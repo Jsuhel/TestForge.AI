@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Sparkles, RotateCcw, Loader2, FileText } from "lucide-react";
+import React, { useEffect, useMemo, useState } from "react";
+import { ListChecks, RotateCcw, Loader2, FileText, FileSearch } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { RichText } from "@/components/ui/rich-text";
 import type { RequirementAnalysis } from "@/lib/types";
@@ -11,6 +11,11 @@ export interface RequirementAnalysisCardProps {
   generating: boolean;
   onGenerate: () => void;
   onReset: () => void;
+  /**
+   * Play the streaming reveal — only when this analysis was just generated.
+   * Restored sessions render instantly instead of pretending to re-analyze.
+   */
+  animate?: boolean;
 }
 
 /** Restate a raw requirement ("The system shall validate...") as clean plain language ("Validates..."). */
@@ -156,12 +161,19 @@ export function RequirementAnalysisCard({
   generating,
   onGenerate,
   onReset,
+  animate = false,
 }: RequirementAnalysisCardProps) {
   const fullText = useMemo(() => composeExplanation(analysis), [analysis]);
   const [visible, setVisible] = useState(0);
-  const streamingRef = useRef(false);
 
   useEffect(() => {
+    // Restored sessions (and reduced-motion users) get the full text at once —
+    // only a freshly generated analysis streams in.
+    if (!animate) {
+      const raf = requestAnimationFrame(() => setVisible(fullText.length));
+      return () => cancelAnimationFrame(raf);
+    }
+
     const reducedMotion =
       typeof window !== "undefined" &&
       window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -173,13 +185,11 @@ export function RequirementAnalysisCard({
 
     // Reset + stream via callbacks so state is never set synchronously in the effect body.
     const reset = requestAnimationFrame(() => setVisible(0));
-    streamingRef.current = true;
     let count = 0;
     const interval = setInterval(() => {
       count += CHARS_PER_TICK;
       if (count >= fullText.length) {
         clearInterval(interval);
-        streamingRef.current = false;
         setVisible(fullText.length);
         return;
       }
@@ -189,27 +199,25 @@ export function RequirementAnalysisCard({
       cancelAnimationFrame(reset);
       clearInterval(interval);
     };
-  }, [fullText]);
+  }, [fullText, animate]);
 
   const done = visible >= fullText.length;
 
   return (
-    <div className="rounded-xl border border-slate-800/80 bg-slate-900/60 backdrop-blur-sm shadow-sm shadow-black/20 overflow-hidden">
-      {/* Subtle top glow */}
-      <div className="h-px bg-gradient-to-r from-transparent via-blue-500/60 to-transparent" />
-
-      {/* Chat header */}
-      <div className="flex items-center justify-between gap-3 px-5 sm:px-7 pt-5 pb-3 border-b border-slate-900">
+    <div className="rounded-xl bg-zinc-900 overflow-hidden">
+      {/* Header */}
+      <div className="flex items-center justify-between gap-3 px-5 sm:px-7 pt-5 pb-3">
         <div className="flex items-center gap-3">
-          <div className="relative flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 via-indigo-500 to-purple-600 shadow-lg shadow-blue-500/25">
-            <Sparkles className="h-4 w-4 text-white" />
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-zinc-800">
+            <FileSearch className="h-4 w-4 text-zinc-400" />
           </div>
           <div>
-            <p className="font-display text-sm font-semibold text-white leading-tight">
-              TestForge AI
+            <p className="text-sm font-semibold text-zinc-100 leading-tight">
+              Requirement analysis
             </p>
-            <p className="text-[11px] text-slate-500 leading-tight">
-              {done ? "Analysis complete" : "Analyzing your document..."}
+            <p className="text-[11px] text-zinc-500 leading-tight">
+              {analysis.engineLabel ?? "Built-in Rule Engine"}
+              {done ? " · analysis complete" : " · analyzing your document…"}
             </p>
           </div>
         </div>
@@ -219,7 +227,7 @@ export function RequirementAnalysisCard({
           variant="ghost"
           size="sm"
           onClick={onReset}
-          className="text-slate-500 hover:text-slate-300"
+          className="text-zinc-500 hover:text-zinc-300"
         >
           <RotateCcw className="h-3.5 w-3.5" />
           <span className="hidden sm:inline">New Document</span>
@@ -228,7 +236,7 @@ export function RequirementAnalysisCard({
 
       {/* Explanation body */}
       <div className="px-5 sm:px-7 py-6">
-        <div className="max-w-3xl mx-auto text-sm sm:text-[15px] text-slate-300">
+        <div className="max-w-3xl mx-auto text-sm sm:text-[15px]  text-zinc-300">
           <RichText text={fullText.slice(0, visible)} />
           {!done && <span className="tf-caret" aria-hidden>&nbsp;</span>}
         </div>
@@ -238,22 +246,22 @@ export function RequirementAnalysisCard({
       <div className="px-5 sm:px-7 pb-6">
         <div className="max-w-3xl mx-auto">
           {done && (
-            <div className="mb-4 flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-[11px] text-slate-600">
+            <div className="mb-4 flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-[11px] text-zinc-600">
               <FileText className="h-3 w-3" />
               <span>{analysis.stats.pages || "—"} pages</span>
-              <span className="text-slate-800">·</span>
+              <span className="text-zinc-800">·</span>
               <span>{analysis.stats.words.toLocaleString()} words</span>
-              <span className="text-slate-800">·</span>
+              <span className="text-zinc-800">·</span>
               <span>{analysis.stats.requirementCount} requirements</span>
-              <span className="text-slate-800">·</span>
+              <span className="text-zinc-800">·</span>
               <span>{analysis.stats.moduleCount} modules</span>
-              <span className="text-slate-800">·</span>
+              <span className="text-zinc-800">·</span>
               <span>{analysis.stats.journeyCount} journeys</span>
             </div>
           )}
 
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-slate-900">
-            <p className="text-xs text-slate-500 text-center sm:text-left">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4">
+            <p className="text-xs text-zinc-500 text-center sm:text-left">
               {analysis.requirements.length > 0
                 ? `${analysis.requirements.length} test scenarios ready to be generated.`
                 : "A document-level smoke suite is ready to generate."}
@@ -269,7 +277,7 @@ export function RequirementAnalysisCard({
               {generating ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
-                <Sparkles className="h-4 w-4" />
+                <ListChecks className="h-4 w-4" />
               )}
               {generating ? "Generating Test Cases..." : "Generate Test Cases"}
             </Button>

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { ListChecks, Download, Sparkles, Cpu, Zap, Pencil, X, Check, Plus, Trash2 } from "lucide-react";
+import { ListChecks, Download, Cpu, Zap, Pencil, X, Check, Plus, Trash2 } from "lucide-react";
 import ExcelJS from "exceljs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -23,10 +23,10 @@ export interface TestCasesCardProps {
 }
 
 const inputClass =
-  "w-full h-8 rounded-md border border-slate-700/80 bg-slate-900/70 px-2.5 text-xs text-slate-200 placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500/60 transition-colors";
+  "w-full h-8 rounded-md border border-zinc-700/80 bg-zinc-900/70 px-2.5 text-xs text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-zinc-400/40 focus:border-zinc-500/60 transition-colors";
 
 const textareaClass =
-  "w-full min-h-[60px] rounded-md border border-slate-700/80 bg-slate-900/70 px-2.5 py-2 text-xs text-slate-200 placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500/60 transition-colors resize-y leading-relaxed";
+  "w-full min-h-[60px] rounded-md border border-zinc-700/80 bg-zinc-900/70 px-2.5 py-2 text-xs text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-zinc-400/40 focus:border-zinc-500/60 transition-colors resize-y leading-relaxed";
 
 /** Clean empty steps while preserving the full step list. */
 function normalizeSteps(steps: string[]): string[] {
@@ -153,32 +153,32 @@ function TestCaseEditor({
   onCancel: () => void;
 }) {
   return (
-    <div className="rounded-xl border border-blue-500/30 bg-slate-950/80 p-4 space-y-3.5">
+    <div className="rounded-xl border border-zinc-700 bg-zinc-950/80 p-4 space-y-3.5">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <Pencil className="h-3.5 w-3.5 text-blue-400" />
+          <Pencil className="h-3.5 w-3.5 text-zinc-300" />
           <p className="text-xs font-semibold text-white">
             {mode === "new" ? (
               <>
                 New test case{" "}
-                <span className="font-mono text-blue-400">{draft.id}</span>
+                <span className="font-mono text-zinc-300">{draft.id}</span>
               </>
             ) : (
               <>
                 Manually editing{" "}
-                <span className="font-mono text-blue-400">{draft.id}</span>
+                <span className="font-mono text-zinc-300">{draft.id}</span>
               </>
             )}
           </p>
         </div>
-        <p className="text-[11px] text-slate-500">
+        <p className="text-[11px] text-zinc-500">
           Saved changes apply to the Playwright script, the browser run and the Excel export.
         </p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
         <div className="lg:col-span-9">
-          <label className="mb-1 block text-[11px] font-medium text-slate-400">
+          <label className="mb-1 block text-[11px] font-medium text-zinc-400">
             Test Scenario
           </label>
           <input
@@ -189,7 +189,7 @@ function TestCaseEditor({
           />
         </div>
         <div className="lg:col-span-3">
-          <label className="mb-1 block text-[11px] font-medium text-slate-400">
+          <label className="mb-1 block text-[11px] font-medium text-zinc-400">
             Priority
           </label>
           <select
@@ -208,7 +208,7 @@ function TestCaseEditor({
 
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <label className="text-[11px] font-medium text-slate-400">
+          <label className="text-[11px] font-medium text-zinc-400">
             Test Steps ({draft.steps.length})
           </label>
           <Button
@@ -216,7 +216,7 @@ function TestCaseEditor({
             variant="ghost"
             size="sm"
             onClick={() => onChange({ ...draft, steps: [...draft.steps, ""] })}
-            className="h-6 text-[10px] text-blue-400 hover:text-blue-300"
+            className="h-6 text-[10px] text-zinc-300 hover:text-zinc-300"
           >
             + Add Step
           </Button>
@@ -224,7 +224,7 @@ function TestCaseEditor({
         <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
           {draft.steps.map((step, i) => (
             <div key={i} className="flex items-start gap-2">
-              <span className="mt-2 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-800 text-[10px] font-mono text-slate-400">
+              <span className="mt-2 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-zinc-800 text-[10px] font-mono text-zinc-400">
                 {i + 1}
               </span>
               <input
@@ -245,7 +245,7 @@ function TestCaseEditor({
                     const steps = draft.steps.filter((_, idx) => idx !== i);
                     onChange({ ...draft, steps });
                   }}
-                  className="mt-1 text-slate-500 hover:text-rose-400 text-xs px-1"
+                  className="mt-1 text-zinc-500 hover:text-rose-400 text-xs px-1"
                   title="Remove this step"
                 >
                   ✕
@@ -257,7 +257,7 @@ function TestCaseEditor({
       </div>
 
       <div>
-        <label className="mb-1 block text-[11px] font-medium text-slate-400">
+        <label className="mb-1 block text-[11px] font-medium text-zinc-400">
           Expected Scenario
         </label>
         <textarea
@@ -362,7 +362,7 @@ export function TestCasesCard({
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-purple-500/10 text-purple-400 border border-purple-500/20">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-zinc-800 text-zinc-400">
               <ListChecks className="h-5 w-5" />
             </div>
             <div className="min-w-0">
@@ -371,13 +371,13 @@ export function TestCasesCard({
                   Generated Test Cases
                 </h2>
                 <Badge variant="secondary" className="text-[10px]">
-                  {engine === "claude" ? <Sparkles className="h-3 w-3" /> : <Cpu className="h-3 w-3" />}
+                  <Cpu className="h-3 w-3" />
                   {engineLabel ?? (engine === "claude" ? "Claude AI" : "Built-in Rule Engine")}
                 </Badge>
               </div>
-              <p className="text-xs text-slate-400 mt-0.5">
+              <p className="text-xs text-zinc-400 mt-0.5">
                 {testCases.length} test scenarios generated from{" "}
-                <span className="text-slate-300">{documentName}</span>
+                <span className="text-zinc-300">{documentName}</span>
               </p>
             </div>
           </div>
@@ -406,10 +406,10 @@ export function TestCasesCard({
         </div>
 
         {/* Table — template: No | Scenario | Priority | Steps | Expected */}
-        <div className="overflow-auto max-h-[520px] rounded-xl border border-slate-800">
+        <div className="overflow-auto max-h-[520px] rounded-xl border border-zinc-800">
           <table className="w-full text-left border-collapse min-w-[860px]">
             <thead className="sticky top-0 z-10">
-              <tr className="bg-slate-950 border-b border-slate-800">
+              <tr className="bg-zinc-950 border-b border-zinc-800">
                 {[
                   "Test Case No",
                   "Test Scenario",
@@ -420,17 +420,17 @@ export function TestCasesCard({
                 ].map((col) => (
                   <th
                     key={col}
-                    className="whitespace-nowrap px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500"
+                    className="whitespace-nowrap px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-500"
                   >
                     {col}
                   </th>
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800/70">
+            <tbody className="divide-y divide-zinc-800/70">
               {/* Inline editor for a manually added test case */}
               {editingId === "new" && draft && (
-                <tr className="bg-slate-950/70">
+                <tr className="bg-zinc-950/70">
                   <td colSpan={6} className="px-3 py-4">
                     <TestCaseEditor
                       mode="new"
@@ -445,15 +445,15 @@ export function TestCasesCard({
               {testCases.map((tc) => (
                 <React.Fragment key={tc.id}>
                 <tr
-                  className="bg-slate-950/40 hover:bg-slate-900/50 transition-colors align-top"
+                  className="bg-zinc-950/40 hover:bg-zinc-900/50 transition-colors align-top"
                 >
                   <td className="px-3 py-3">
-                    <span className="rounded-md bg-slate-800/80 border border-slate-700 px-1.5 py-0.5 text-[10px] font-mono text-slate-300 whitespace-nowrap">
+                    <span className="rounded-md bg-zinc-800/80 border border-zinc-700 px-1.5 py-0.5 text-[10px] font-mono text-zinc-300 whitespace-nowrap">
                       {tc.id}
                     </span>
                   </td>
                   <td className="px-3 py-3 max-w-[300px]">
-                    <p className="text-xs font-medium text-slate-200 leading-relaxed">
+                    <p className="text-xs font-medium text-zinc-200 leading-relaxed">
                       {tc.title}
                     </p>
                   </td>
@@ -468,8 +468,8 @@ export function TestCasesCard({
                   <td className="px-3 py-3 max-w-[340px]">
                     <ol className="space-y-1">
                       {tc.steps.map((step, i) => (
-                        <li key={i} className="flex items-start gap-1.5 text-[11px] text-slate-400">
-                          <span className="mt-px flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-slate-800 text-[9px] font-mono text-slate-500">
+                        <li key={i} className="flex items-start gap-1.5 text-[11px] text-zinc-400">
+                          <span className="mt-px flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-zinc-800 text-[9px] font-mono text-zinc-500">
                             {i + 1}
                           </span>
                           <span className="leading-relaxed">{step}</span>
@@ -492,7 +492,7 @@ export function TestCasesCard({
                         className="whitespace-nowrap"
                         title="Generate a Playwright script for this test case"
                       >
-                        <Zap className="h-3.5 w-3.5 text-amber-400" />
+                        <Zap className="h-3.5 w-3.5 text-zinc-300" />
                         Automate
                       </Button>
                       <Button
@@ -521,7 +521,7 @@ export function TestCasesCard({
                           "whitespace-nowrap " +
                           (armedDeleteId === tc.id
                             ? "border-rose-500/40 bg-rose-500/10 text-rose-300 hover:bg-rose-500/15 hover:text-rose-200"
-                            : "text-slate-500 hover:text-rose-300 hover:border-rose-500/30")
+                            : "text-zinc-500 hover:text-rose-300 hover:border-rose-500/30")
                         }
                         title={armedDeleteId === tc.id ? "Click again to delete this test case" : "Delete this test case"}
                       >
@@ -534,7 +534,7 @@ export function TestCasesCard({
 
                 {/* Inline manual editor for this test case */}
                 {editingId === tc.id && draft && (
-                  <tr className="bg-slate-950/70">
+                  <tr className="bg-zinc-950/70">
                     <td colSpan={6} className="px-3 py-4">
                       <TestCaseEditor
                         mode="edit"
@@ -554,7 +554,7 @@ export function TestCasesCard({
 
         {/* Download footer */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-1">
-          <p className="text-xs text-slate-400 text-center sm:text-left">
+          <p className="text-xs text-zinc-400 text-center sm:text-left">
             {testCases.length} scenarios • sequential steps with expected outcomes, automation-ready.
           </p>
           <Button

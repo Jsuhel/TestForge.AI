@@ -188,7 +188,6 @@ export async function executeAICall({
       const stream = client.messages.stream({
         model: AI_MODEL,
         max_tokens: maxTokens,
-        thinking: { type: "adaptive" },
         system,
         messages: [{ role: "user", content: userPrompt }],
       });

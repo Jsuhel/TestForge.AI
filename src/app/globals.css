@@ -7,31 +7,31 @@
 }
 
 :root {
-  --background: #0b0f17;
-  --foreground: #f1f5f9;
-  --card: #111726;
-  --card-foreground: #f8fafc;
-  --popover: #111726;
-  --popover-foreground: #f8fafc;
-  --primary: #3b82f6;
-  --primary-foreground: #ffffff;
-  --secondary: #1e293b;
-  --secondary-foreground: #f8fafc;
-  --muted: #1e293b;
-  --muted-foreground: #94a3b8;
-  --accent: #1e293b;
-  --accent-foreground: #f8fafc;
+  --background: #0a0a0b;
+  --foreground: #f4f4f5;
+  --card: #141416;
+  --card-foreground: #f4f4f5;
+  --popover: #141416;
+  --popover-foreground: #f4f4f5;
+  --primary: #fafafa;
+  --primary-foreground: #18181b;
+  --secondary: #1c1c1f;
+  --secondary-foreground: #e4e4e7;
+  --muted: #1c1c1f;
+  --muted-foreground: #a1a1aa;
+  --accent: #1c1c1f;
+  --accent-foreground: #e4e4e7;
   --destructive: #ef4444;
   --destructive-foreground: #ffffff;
-  --border: #1e293b;
-  --input: #1e293b;
-  --ring: #3b82f6;
+  --border: #1c1c1f;
+  --input: #1c1c1f;
+  --ring: #71717a;
   --radius: 0.5rem;
 }
 
 body {
-  background-color: #090d16;
-  color: #f1f5f9;
+  background-color: #0a0a0b;
+  color: #f4f4f5;
   font-family: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
@@ -46,7 +46,7 @@ h4,
   letter-spacing: -0.015em;
 }
 
-/* Blinking cursor for the AI explanation stream */
+/* Blinking cursor for the freshly generated analysis stream */
 @keyframes tf-caret-blink {
   0%, 100% { opacity: 1; }
   50% { opacity: 0; }
@@ -56,49 +56,10 @@ h4,
   display: inline-block;
   width: 8px;
   margin-left: 2px;
-  background: #60a5fa;
+  background: #a1a1aa;
   animation: tf-caret-blink 1s step-end infinite;
   vertical-align: text-bottom;
   border-radius: 1px;
-}
-
-/* Hero entrance — soft rise + fade, staggered via animation-delay */
-@keyframes tf-rise {
-  from {
-    opacity: 0;
-    transform: translateY(14px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.tf-rise {
-  animation: tf-rise 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-
-/* Flowing gradient for the brand name */
-@keyframes tf-gradient-pan {
-  0%,
-  100% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
-}
-
-.tf-gradient-text {
-  background-size: 220% auto;
-  animation: tf-gradient-pan 6s ease-in-out infinite;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .tf-rise,
-  .tf-gradient-text {
-    animation: none;
-  }
 }
 
 /* Custom scrollbar for modern dashboards */
@@ -112,10 +73,10 @@ h4,
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #26334d;
+  background: #27272a;
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #334466;
+  background: #3f3f46;
 }

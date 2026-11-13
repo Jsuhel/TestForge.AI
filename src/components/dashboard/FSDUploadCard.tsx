@@ -2,15 +2,12 @@
 
 import React, { useRef, useState } from "react";
 import {
-  AtSign,
   Plus,
   X,
   FileText,
   AlertCircle,
   Loader2,
 } from "lucide-react";
-import { BorderBeam } from "@/components/ui/border-beam";
-
 
 export interface FSDUploadCardProps {
   /** The selected file, if any. Actual File object is kept by the parent. */
@@ -23,11 +20,10 @@ export interface FSDUploadCardProps {
 
 const CHIP: React.CSSProperties = {
   borderRadius: 36,
-  background: "rgba(255,255,255,0.04)",
-  boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.02), inset 0 1px 0 0 rgba(255,255,255,0.04)",
+  background: "rgba(255,255,255,0.06)",
 };
 
-const ICON_GRAY = "#808388";
+const ICON_GRAY = "#71717a";
 
 export function FSDUploadCard({
   selectedFile,
@@ -58,8 +54,8 @@ export function FSDUploadCard({
     : "";
 
   return (
-    <div className="space-y-3">
-      <div>
+    <div className="space-y-3 w-full">
+      <div className="w-full">
         <input
           type="file"
           ref={fileInputRef}
@@ -68,163 +64,142 @@ export function FSDUploadCard({
           className="hidden"
         />
 
-        {/* Chat-style FSD composer wrapped in the animated beam border */}
-        <BorderBeam size="md" colorVariant="colorful" className="mx-auto block w-full max-w-[520px]">
-          <div
-            onDragOver={(e) => {
-              e.preventDefault();
-              setDragOver(true);
-            }}
-            onDragLeave={() => setDragOver(false)}
-            onDrop={handleDrop}
-            style={{
-              width: "100%",
-              maxWidth: 520,
-              margin: "0 auto",
-              borderRadius: 16,
-              background: dragOver ? "#1c2230" : "#161a22",
-              overflow: "hidden",
-              position: "relative",
-            }}
-          >
-          <div style={{ padding: "6px 6px 7px", display: "flex", flexDirection: "column", minHeight: 92 }}>
-            {/* Top chip — the attached FSD, or a decorative @ */}
-            {selectedFile ? (
-              <div
-                style={{
-                  ...CHIP,
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 6,
-                  width: "fit-content",
-                  maxWidth: "100%",
-                  height: 24,
-                  padding: "0 4px 0 8px",
-                  marginLeft: 1,
-                  fontSize: 11,
-                  lineHeight: "13px",
-                  color: "#caccd2",
-                }}
-              >
-                <FileText style={{ width: 13, height: 13, color: "#60a5fa", flexShrink: 0 }} />
-                <span style={{ maxWidth: "clamp(100px, 36vw, 220px)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {selectedFile.name}
-                </span>
-                <span style={{ color: "#6b7280", flexShrink: 0 }}>{fileSizeLabel}</span>
-                <button
-                  type="button"
-                  onClick={() => onSelectFile(null)}
-                  title="Remove file"
-                  style={{ display: "inline-flex", color: ICON_GRAY, flexShrink: 0 }}
+        {/* FSD composer — flat card, no ornament */}
+        <div
+          onDragOver={(e) => {
+            e.preventDefault();
+            setDragOver(true);
+          }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={handleDrop}
+          className="mx-auto block w-full max-w-[560px] rounded-2xl transition-colors duration-200"
+          style={{
+            background: dragOver ? "#1c1c1f" : "#141416",
+          }}
+        >
+            <div className="p-3 sm:p-3.5 flex flex-col justify-between min-h-[104px] gap-2.5">
+              {/* Top chip — attached FSD or decorative @ */}
+              {selectedFile ? (
+                <div
+                  style={{
+                    ...CHIP,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                    width: "fit-content",
+                    maxWidth: "100%",
+                    height: 26,
+                    padding: "0 6px 0 8px",
+                    fontSize: 11,
+                    lineHeight: "14px",
+                    color: "#e4e4e7",
+                  }}
                 >
-                  <X style={{ width: 12, height: 12 }} />
-                </button>
-              </div>
-            ) : (
-              <div
-                style={{
-                  ...CHIP,
-                  display: "inline-flex",
-                  alignItems: "center",
-                  width: "fit-content",
-                  height: 24,
-                  padding: "0 7px",
-                  marginLeft: 1,
-                }}
-              >
-                <AtSign style={{ width: 14, height: 14, color: ICON_GRAY }} />
-              </div>
-            )}
+                  <FileText style={{ width: 13, height: 13, color: "#a1a1aa", flexShrink: 0 }} />
+                  <span style={{ maxWidth: "clamp(120px, 45vw, 260px)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {selectedFile.name}
+                  </span>
+                  <span style={{ color: "#71717a", flexShrink: 0 }}>{fileSizeLabel}</span>
+                  <button
+                    type="button"
+                    onClick={() => onSelectFile(null)}
+                    title="Remove file"
+                    className="hover:text-white transition-colors p-0.5"
+                    style={{ display: "inline-flex", color: ICON_GRAY, flexShrink: 0 }}
+                  >
+                    <X style={{ width: 12, height: 12 }} />
+                  </button>
+                </div>
+              ) : (
+                <div
+                  style={{
+                    ...CHIP,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    width: "fit-content",
+                    height: 24,
+                    padding: "0 7px",
+                  }}
+                >
+                  <FileText style={{ width: 13, height: 13, color: "#71717a" }} />
+                </div>
+              )}
 
-            {/* Input line — click (or drop a file) to attach the FSD */}
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              style={{
-                fontSize: 12.5,
-                lineHeight: "15px",
-                color: selectedFile ? "#a5adc4" : "#4e4e4e",
-                padding: "10px 4px 0",
-                textAlign: "left",
-                cursor: "pointer",
-              }}
-              title="Click to browse for your FSD"
-            >
-              {selectedFile
-                ? "FSD attached — press the arrow to analyze, then chat with the AI about it."
-                : "Upload FSD and chat with AI for explanation..."}
-            </button>
-
-            {/* Bottom row — upload (+), engine (Auto), analyze (arrow) */}
-            <div style={{ display: "flex", alignItems: "center", gap: 7, marginTop: "auto" }}>
+              {/* Input line — click to attach */}
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                title="Upload FSD (PDF, DOCX or TXT)"
+                className="text-left cursor-pointer w-full text-xs sm:text-sm leading-relaxed transition-colors duration-150"
                 style={{
-                  ...CHIP,
-                  display: "inline-flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  width: 26,
-                  height: 22,
-                  marginLeft: 1,
-                  color: "#caccd2",
-                  cursor: "pointer",
+                  color: selectedFile ? "#e4e4e7" : "#71717a",
+                  padding: "4px 2px",
                 }}
+                title="Click to browse for your FSD"
               >
-                <Plus style={{ width: 13, height: 13 }} />
+                {selectedFile
+                  ? "FSD attached — press the arrow to analyze and chat with AI."
+                  : "Upload FSD / PRD and chat with AI for test automation..."}
               </button>
 
-              <div
-                title="Engine is selected automatically — Claude AI when configured, built-in rules otherwise"
-                style={{
-                  ...CHIP,
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 4,
-                  height: 22,
-                  padding: "0 6px 0 7px",
-                  fontSize: 11,
-                  lineHeight: "13px",
-                  color: "#caccd2",
-                }}
-              >
-                Auto
-                <ChevronDownIcon />
+              {/* Bottom row — upload (+), engine (Auto), analyze (arrow) */}
+              <div className="flex items-center gap-2 pt-1 mt-auto">
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  title="Upload FSD (PDF, DOCX or TXT)"
+                  className="inline-flex items-center justify-center h-7 px-2 rounded-full text-zinc-300 hover:text-white hover:bg-white/10 transition-colors cursor-pointer text-xs gap-1"
+                  style={{ background: "rgba(255,255,255,0.06)" }}
+                >
+                  <Plus style={{ width: 13, height: 13 }} />
+                  <span className="hidden xs:inline text-[11px] font-medium">Attach</span>
+                </button>
+
+                <div
+                  title="Engine is selected automatically — AI when configured, built-in rules fallback"
+                  className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full text-[11px] text-zinc-400"
+                  style={{ background: "rgba(255,255,255,0.06)" }}
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                  Auto
+                  <ChevronDownIcon />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={onAnalyze}
+                  disabled={!selectedFile || analyzing}
+                  title={selectedFile ? "Analyze requirements" : "Attach an FSD first"}
+                  className={
+                    "ml-auto inline-flex items-center justify-center h-7 w-7 sm:w-auto sm:px-3 rounded-full text-xs font-medium transition-colors " +
+                    (selectedFile && !analyzing
+                      ? "bg-white text-zinc-950 hover:bg-zinc-200 cursor-pointer"
+                      : "bg-white/[0.06] text-zinc-500 cursor-not-allowed")
+                  }
+                >
+                  {analyzing ? (
+                    <Loader2 className="animate-spin h-3.5 w-3.5" />
+                  ) : (
+                    <>
+                      <ArrowUpIcon />
+                      <span className="hidden sm:inline ml-1 text-[11px]">Analyze</span>
+                    </>
+                  )}
+                </button>
               </div>
-
-              <button
-                type="button"
-                onClick={onAnalyze}
-                disabled={!selectedFile || analyzing}
-                title={selectedFile ? "Analyze requirements" : "Attach an FSD first"}
-                style={{
-                  ...CHIP,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  width: 27,
-                  height: 24,
-                  marginLeft: "auto",
-                  padding: "0 7px",
-                  color: selectedFile && !analyzing ? "#e7eaf0" : "#565b64",
-                  cursor: selectedFile && !analyzing ? "pointer" : "not-allowed",
-                }}
-              >
-                {analyzing ? (
-                  <Loader2 className="animate-spin" style={{ width: 14, height: 14 }} />
-                ) : (
-                  <ArrowUpIcon />
-                )}
-              </button>
             </div>
           </div>
-          </div>
-        </BorderBeam>
+
+        {/* Quick capability hints below composer */}
+        <div className="mt-3 flex flex-wrap items-center justify-center gap-1.5 sm:gap-2 text-[11px] text-zinc-500">
+          <span>Supported:</span>
+          <span className="rounded-md bg-white/[0.05] px-2 py-0.5 text-zinc-400">PDF</span>
+          <span className="rounded-md bg-white/[0.05] px-2 py-0.5 text-zinc-400">DOCX</span>
+          <span className="rounded-md bg-white/[0.05] px-2 py-0.5 text-zinc-400">TXT</span>
+          <span className="rounded-md bg-white/[0.05] px-2 py-0.5 text-zinc-400">Markdown</span>
+        </div>
 
         {error && (
-          <div className="flex items-start gap-2 rounded-lg bg-rose-500/10 border border-rose-500/20 p-3 text-xs text-rose-300">
+          <div className="mt-3 flex items-start gap-2 rounded-lg bg-rose-500/10 p-3 text-xs text-rose-300">
             <AlertCircle className="h-4 w-4 text-rose-400 shrink-0 mt-0.5" />
             <span>{error}</span>
           </div>
@@ -245,7 +220,7 @@ function ChevronDownIcon() {
 function ArrowUpIcon() {
   return (
     <svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="none">
-      <path d="M8 12.6667V3.33333M12.6667 8L8 3.33333L3.33333 8" stroke="#8B8B8B" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M8 12.6667V3.33333M12.6667 8L8 3.33333L3.33333 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }

@@ -30,7 +30,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} min-h-screen bg-[#090d16] text-slate-100 antialiased font-sans`}
+        className={`${geistSans.variable} ${geistMono.variable} min-h-screen bg-[#0a0a0b] text-zinc-100 antialiased font-sans`}
       >
         <EngineStatusBanner />
         {children}

@@ -4,15 +4,18 @@ import React, { useEffect, useRef, useState } from "react";
 import { Bot, Send, Loader2, User, MessageCircle, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { RichText } from "@/components/ui/rich-text";
-import type { RequirementAnalysis } from "@/lib/types";
-
-interface ChatMessage {
-  role: "user" | "assistant";
-  content: string;
-}
+import type { ChatMessage, RequirementAnalysis } from "@/lib/types";
 
 export interface FSDChatCardProps {
   analysis: RequirementAnalysis;
+  /** Conversation is owned by the parent so it persists across refreshes. */
+  messages: ChatMessage[];
+  /** setState-compatible updater — the parent passes setMessages directly. */
+  onMessagesChange: React.Dispatch<React.SetStateAction<ChatMessage[]>>;
+  /** Engine badge restored from the saved session, if any. */
+  initialEngineLabel?: string | null;
+  /** Notifies the parent of the serving engine so it persists with the session. */
+  onEngineLabelChange?: (label: string) => void;
 }
 
 /** Starter questions shown before the first message is sent. */
@@ -23,12 +26,11 @@ const SUGGESTIONS = [
   "What user journeys does the document describe?",
 ];
 
-export function FSDChatCard({ analysis }: FSDChatCardProps) {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+export function FSDChatCard({ analysis, messages, onMessagesChange, initialEngineLabel, onEngineLabelChange }: FSDChatCardProps) {
   const [input, setInput] = useState("");
   const [thinking, setThinking] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [engineLabel, setEngineLabel] = useState<string | null>(null);
+  const [engineLabel, setEngineLabel] = useState<string | null>(initialEngineLabel ?? null);
   const listRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -44,7 +46,7 @@ export function FSDChatCard({ analysis }: FSDChatCardProps) {
     setError(null);
     setInput("");
     const history = messages;
-    setMessages((prev) => [...prev, { role: "user", content: q }, { role: "assistant", content: "" }]);
+    onMessagesChange([...history, { role: "user", content: q }, { role: "assistant", content: "" }]);
     setThinking(true);
 
     try {
@@ -57,19 +59,22 @@ export function FSDChatCard({ analysis }: FSDChatCardProps) {
 
       if (!response.ok || !data?.answer) {
         // Drop the empty assistant placeholder and surface the error.
-        setMessages((prev) => prev.slice(0, -1));
+        onMessagesChange((prev) => prev.slice(0, -1));
         setError(data?.error ?? `The chat failed (${response.status}). Please try again.`);
         return;
       }
 
-      if (data.engineLabel) setEngineLabel(data.engineLabel as string);
-      setMessages((prev) => {
+      if (data.engineLabel) {
+        setEngineLabel(data.engineLabel as string);
+        onEngineLabelChange?.(data.engineLabel as string);
+      }
+      onMessagesChange((prev) => {
         const next = [...prev];
         next[next.length - 1] = { role: "assistant", content: data.answer as string };
         return next;
       });
     } catch {
-      setMessages((prev) => prev.slice(0, -1));
+      onMessagesChange((prev) => prev.slice(0, -1));
       setError("Network error while contacting the AI. Please try again.");
     } finally {
       setThinking(false);
@@ -86,21 +91,18 @@ export function FSDChatCard({ analysis }: FSDChatCardProps) {
   };
 
   return (
-    <div className="rounded-xl border border-slate-800/80 bg-slate-900/60 backdrop-blur-sm shadow-sm shadow-black/20 overflow-hidden">
-      {/* Subtle top glow */}
-      <div className="h-px bg-gradient-to-r from-transparent via-blue-500/60 to-transparent" />
-
+    <div className="rounded-xl bg-zinc-900 overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between gap-3 px-5 sm:px-7 pt-5 pb-4 border-b border-slate-900">
+      <div className="flex items-center justify-between gap-3 px-5 sm:px-7 pt-5 pb-4">
         <div className="flex items-center gap-3">
-          <div className="relative flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 via-indigo-500 to-purple-600 shadow-lg shadow-blue-500/25">
-            <MessageCircle className="h-4 w-4 text-white" />
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-zinc-800">
+            <MessageCircle className="h-4 w-4 text-zinc-400" />
           </div>
           <div>
-            <p className="font-display text-sm font-semibold text-white leading-tight">
+            <p className="text-sm font-semibold text-zinc-100 leading-tight">
               Ask about this FSD
             </p>
-            <p className="text-[11px] text-slate-500 leading-tight">
+            <p className="text-[11px] text-zinc-500 leading-tight">
               {engineLabel
                 ? `Chatting with ${engineLabel} about ${analysis.documentName}`
                 : `Clarify anything in ${analysis.documentName}`}
@@ -113,10 +115,10 @@ export function FSDChatCard({ analysis }: FSDChatCardProps) {
             variant="ghost"
             size="sm"
             onClick={() => {
-              setMessages([]);
+              onMessagesChange([]);
               setError(null);
             }}
-            className="text-slate-500 hover:text-slate-300"
+            className="text-zinc-500 hover:text-zinc-300"
           >
             Clear
           </Button>
@@ -130,11 +132,11 @@ export function FSDChatCard({ analysis }: FSDChatCardProps) {
       >
         {messages.length === 0 && (
           <div className="text-center py-6">
-            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-slate-800/60">
-              <Bot className="h-5 w-5 text-blue-400/80" />
+            <div className="mx-auto mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-zinc-800">
+              <Bot className="h-5 w-5 text-zinc-400" />
             </div>
-            <p className="text-sm text-slate-400 max-w-md mx-auto">
-              Any doubts about <span className="text-slate-200 font-medium">{analysis.documentName}</span>?
+            <p className="text-sm text-zinc-400 max-w-md mx-auto">
+              Any doubts about <span className="text-zinc-200 font-medium">{analysis.documentName}</span>?
               Ask and the AI will explain the FSD — requirements, rules, flows — directly from the analysis.
             </p>
             <div className="mt-5 flex flex-wrap justify-center gap-2">
@@ -143,7 +145,7 @@ export function FSDChatCard({ analysis }: FSDChatCardProps) {
                   key={s}
                   type="button"
                   onClick={() => void send(s)}
-                  className="rounded-full border border-slate-700/70 bg-slate-800/40 px-3.5 py-1.5 text-xs text-slate-300 hover:border-blue-500/50 hover:text-white transition-colors"
+                  className="rounded-full bg-zinc-800 px-3.5 py-1.5 text-xs text-zinc-300 hover:bg-zinc-700 hover:text-white transition-colors"
                 >
                   {s}
                 </button>
@@ -156,25 +158,25 @@ export function FSDChatCard({ analysis }: FSDChatCardProps) {
           m.role === "user" ? (
             <div key={i} className="flex justify-end">
               <div className="flex max-w-[85%] items-start gap-2.5">
-                <div className="rounded-2xl rounded-tr-sm bg-blue-600/90 px-4 py-2.5 text-sm text-white shadow-lg shadow-blue-950/30 whitespace-pre-wrap">
+                <div className="rounded-2xl rounded-tr-sm bg-zinc-800 px-4 py-2.5 text-sm text-zinc-100 whitespace-pre-wrap">
                   {m.content}
                 </div>
-                <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-700/70">
-                  <User className="h-3.5 w-3.5 text-slate-300" />
+                <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-zinc-800">
+                  <User className="h-3.5 w-3.5 text-zinc-400" />
                 </div>
               </div>
             </div>
           ) : (
             <div key={i} className="flex justify-start">
               <div className="flex max-w-[92%] items-start gap-2.5">
-                <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 via-indigo-500 to-purple-600">
-                  <Bot className="h-3.5 w-3.5 text-white" />
+                <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-zinc-800">
+                  <Bot className="h-3.5 w-3.5 text-zinc-400" />
                 </div>
-                <div className="rounded-2xl rounded-tl-sm border border-slate-800/70 bg-slate-800/40 px-4 py-2.5 text-sm text-slate-300">
+                <div className="rounded-2xl rounded-tl-sm bg-zinc-800/60 px-4 py-2.5 text-sm text-zinc-300">
                   {m.content ? (
                     <RichText text={m.content} />
                   ) : (
-                    <span className="flex items-center gap-2 text-slate-500">
+                    <span className="flex items-center gap-2 text-zinc-500">
                       <Loader2 className="h-3.5 w-3.5 animate-spin" />
                       Thinking…
                     </span>
@@ -195,7 +197,7 @@ export function FSDChatCard({ analysis }: FSDChatCardProps) {
       )}
 
       {/* Composer */}
-      <div className="border-t border-slate-900 px-5 sm:px-7 py-4">
+      <div className="border-t border-zinc-900 px-5 sm:px-7 py-4">
         <div className="flex items-end gap-2">
           <textarea
             ref={inputRef}
@@ -204,7 +206,7 @@ export function FSDChatCard({ analysis }: FSDChatCardProps) {
             onKeyDown={onKeyDown}
             rows={1}
             placeholder="Ask anything about this FSD… (Enter to send)"
-            className="max-h-32 min-h-[2.75rem] flex-1 resize-none rounded-xl border border-slate-700/70 bg-slate-800/40 px-4 py-2.5 text-sm text-slate-200 placeholder:text-slate-600 focus:border-blue-500/60 focus:outline-none focus:ring-1 focus:ring-blue-500/40"
+            className="max-h-32 min-h-[2.75rem] flex-1 resize-none rounded-xl border border-zinc-700/70 bg-zinc-800/40 px-4 py-2.5 text-sm text-zinc-200 placeholder:text-zinc-600 focus:border-zinc-500/60 focus:outline-none focus:ring-1 focus:ring-zinc-400/40"
           />
           <Button
             type="button"
