@@ -9,7 +9,8 @@ const FSD_FILE = path.join(__dirname, "fixtures", "sample-fsd.txt");
 async function generateTestCases(page: import("@playwright/test").Page) {
   await mockPipelineApis(page);
   await page.goto("/");
-  await page.waitForSelector("text=Welcome to", { timeout: 60_000 });
+  // The hero heading renders once the client has hydrated.
+  await page.waitForSelector("#fsd-upload-section h1", { timeout: 60_000 });
 
   await page.locator('input[type="file"]').setInputFiles(FSD_FILE);
   await page.locator('button[title="Analyze requirements"]').click();
@@ -22,12 +23,12 @@ async function generateTestCases(page: import("@playwright/test").Page) {
 }
 
 test.describe("Theme", () => {
-  test("renders on the dark canvas with the gradient brand accent", async ({ page }) => {
+  test("renders on the dark canvas with the flat brand hero", async ({ page }) => {
     await page.goto("/");
-    await page.waitForSelector("text=Welcome to", { timeout: 60_000 });
+    await page.waitForSelector("#fsd-upload-section h1", { timeout: 60_000 });
 
     const bodyBg = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
-    expect(bodyBg).toBe("rgb(9, 13, 22)"); // #090d16
+    expect(bodyBg).toBe("rgb(10, 10, 11)"); // #0a0a0b
 
     const heading = page.locator("#fsd-upload-section h1").first();
     await expect(heading).toBeVisible();
@@ -163,7 +164,7 @@ test.describe("Pipeline (mocked APIs)", () => {
     await mockPipelineApis(page);
     await mockFailingRun(page);
     await page.goto("/");
-    await page.waitForSelector("text=Welcome to", { timeout: 60_000 });
+    await page.waitForSelector("#fsd-upload-section h1", { timeout: 60_000 });
 
     await page.locator('input[type="file"]').setInputFiles(FSD_FILE);
     await page.locator('button[title="Analyze requirements"]').click();

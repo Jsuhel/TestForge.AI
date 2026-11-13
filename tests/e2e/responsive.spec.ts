@@ -19,7 +19,7 @@ for (const vp of VIEWPORTS) {
   test(`hero has no horizontal overflow at ${vp.name} (${vp.width}px)`, async ({ page }) => {
     await page.setViewportSize({ width: vp.width, height: vp.height });
     await page.goto("/");
-    await page.waitForSelector("text=Welcome to", { timeout: 60_000 });
+    await page.waitForSelector("#fsd-upload-section h1", { timeout: 60_000 });
 
     const overflow = await page.evaluate(
       () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
@@ -31,7 +31,7 @@ for (const vp of VIEWPORTS) {
 test("mobile shows the hamburger, not the rail", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
-  await page.waitForSelector("text=Welcome to", { timeout: 60_000 });
+  await page.waitForSelector("#fsd-upload-section h1", { timeout: 60_000 });
 
   await expect(page.getByRole("button", { name: "Toggle Navigation Menu" })).toBeVisible();
   // The sidebar sits off-canvas until opened.
@@ -51,7 +51,7 @@ test("the test-case table scrolls inside its container on narrow screens", async
   await page.setViewportSize({ width: 390, height: 844 });
   await mockPipelineApis(page);
   await page.goto("/");
-  await page.waitForSelector("text=Welcome to", { timeout: 60_000 });
+  await page.waitForSelector("#fsd-upload-section h1", { timeout: 60_000 });
 
   await page.locator('input[type="file"]').setInputFiles(FSD_FILE);
   await page.locator('button[title="Analyze requirements"]').click();
@@ -77,7 +77,7 @@ test("the deep pipeline states stay inside the viewport on a small phone", async
   await mockPipelineApis(page);
   await mockFailingRun(page);
   await page.goto("/");
-  await page.waitForSelector("text=Welcome to", { timeout: 60_000 });
+  await page.waitForSelector("#fsd-upload-section h1", { timeout: 60_000 });
 
   await page.locator('input[type="file"]').setInputFiles(FSD_FILE);
   await page.locator('button[title="Analyze requirements"]').click();
