@@ -137,6 +137,28 @@ test.describe("/api/automate", () => {
     expect(String(body.script)).toContain("test(");
     expect(String(body.script)).toContain("page.goto");
   });
+
+  test("opens the app in the script even without a navigate step", async ({ request }) => {
+    test.setTimeout(360_000);
+    // Business-language steps that never say "navigate" — the goto must not
+    // depend on a step literally containing navigation wording.
+    const res = await postJson(request, "/api/automate", {
+      testCase: {
+        ...MINIMAL_TC,
+        id: "API_TS_02",
+        steps: ["Login to the application", "Open the loan application form", "Enter the loan amount"],
+      },
+      params: { url: "https://example.com", username: "demo.user@testforge.ai", password: "secret" },
+    });
+    expect(res.status()).toBe(200);
+
+    const body = await res.json();
+    const script = String(body.script);
+    expect(script).toContain("test(");
+    expect(script).toContain("page.goto");
+    // The goto sits in the test body, after its declaration.
+    expect(script.indexOf("page.goto")).toBeGreaterThan(script.indexOf("test("));
+  });
 });
 
 test.describe("/api/chat", () => {
@@ -205,5 +227,36 @@ test.describe("/api/run", () => {
     expect(done.result.steps.length).toBeGreaterThan(0);
     expect(done.result.steps[0].status).toBe("passed");
     expect(done.result.steps[0].screenshot).toBeTruthy();
+  });
+
+  test("opens the application even when no step mentions navigation", async ({ request }) => {
+    test.setTimeout(360_000);
+    // Regression: business-language steps ("Login…", "Open the loan form…")
+    // never matched the navigation wording, so the browser stayed on
+    // about:blank — a blank page opened and closed with every step skipped.
+    const res = await postJson(request, "/api/run", {
+      testCase: {
+        ...MINIMAL_TC,
+        id: "API_TS_03",
+        steps: ["Login to the application", "Open the loan application form", "Enter the loan amount"],
+        expectedResult: "System should display the loan confirmation.",
+      },
+      params: { url: "https://example.com", username: "demo.user@testforge.ai", password: "secret" },
+      headed: false,
+    });
+    expect(res.status()).toBe(200);
+
+    const text = await res.text();
+    const events = text
+      .split("\n")
+      .filter(Boolean)
+      .map((line) => JSON.parse(line));
+
+    // The URL must be opened BEFORE any step runs.
+    const logs = events.filter((e) => e.type === "log").map((e) => e.line.text);
+    expect(logs.some((l: string) => l.includes("https://example.com is open"))).toBe(true);
+
+    const done = events.find((e) => e.type === "done");
+    expect(done.result.overall).toBe("passed");
   });
 });

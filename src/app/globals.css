@@ -1,9 +1,9 @@
 @import "tailwindcss";
 
 @theme {
-  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --font-display: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, sans-serif;
-  --font-mono: var(--font-geist-mono), ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-display: var(--font-sora), var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, "SFMono-Regular", Menlo, monospace;
 }
 
 :root {
@@ -32,18 +32,30 @@
 body {
   background-color: #0a0a0b;
   color: #f4f4f5;
-  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-family: var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 
-/* Headings use the same sans family, slightly tightened — one voice everywhere. */
-h1,
-h2,
-h3,
-h4,
-.font-display {
-  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, sans-serif;
-  letter-spacing: -0.015em;
+/* Headings use the display face (Sora, matching the landing page), pulled
+   tight. @layer base keeps utilities able to override where needed. */
+@layer base {
+  h1,
+  h2,
+  h3,
+  h4,
+  .font-display {
+    font-family: var(--font-sora), var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+    letter-spacing: -0.015em;
+  }
+}
+
+/* The landing headline goes full-size (5.25rem) only when the viewport is
+   both wide AND tall enough — on short windows (laptops with display
+   scaling) it stays at 3.75rem so the FSD composer fits above the fold. */
+@media (min-width: 1024px) and (min-height: 760px) {
+  .tf-headline-xl {
+    font-size: 5.25rem;
+  }
 }
 
 /* Blinking cursor for the freshly generated analysis stream */
@@ -60,6 +72,124 @@ h4,
   animation: tf-caret-blink 1s step-end infinite;
   vertical-align: text-bottom;
   border-radius: 1px;
+}
+
+/* ── Hero motion ────────────────────────────────────────────────────────────
+   Entrance: staggered fade + slide for the landing hero stack.
+   Ambient: indigo orbs drifting on offset paths (pre-blurred radial
+   gradients — no filter:blur, so nothing repaints), a grid creeping upward
+   on the compositor, rising particles, a passing beam, and a rotating light
+   ring around the composer. All transform/opacity — GPU-composited, cheap. */
+
+@keyframes tf-fade-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.tf-anim-1 { animation: tf-fade-slide-in 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.05s both; }
+.tf-anim-2 { animation: tf-fade-slide-in 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.16s both; }
+.tf-anim-3 { animation: tf-fade-slide-in 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.27s both; }
+.tf-anim-4 { animation: tf-fade-slide-in 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.38s both; }
+.tf-anim-5 { animation: tf-fade-slide-in 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.49s both; }
+
+@keyframes tf-drift-a {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(9%, -7%, 0) scale(1.22); }
+}
+
+@keyframes tf-drift-b {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1.1); }
+  50% { transform: translate3d(-10%, 8%, 0) scale(0.9); }
+}
+
+@keyframes tf-drift-c {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(7%, -9%, 0) scale(1.25); }
+}
+
+.tf-drift-a { animation: tf-drift-a 14s ease-in-out infinite; will-change: transform; }
+.tf-drift-b { animation: tf-drift-b 20s ease-in-out infinite; will-change: transform; }
+.tf-drift-c { animation: tf-drift-c 26s ease-in-out infinite; will-change: transform; }
+
+/* The grid creeps upward forever — moved via transform, never repainted. */
+@keyframes tf-grid-rise {
+  from { transform: translateY(0); }
+  to { transform: translateY(-44px); }
+}
+
+.tf-grid-rise { animation: tf-grid-rise 12s linear infinite; will-change: transform; }
+
+/* Dust motes rising slowly through the light. */
+@keyframes tf-float-up {
+  0% { transform: translateY(8vh) translateX(0); opacity: 0; }
+  12% { opacity: 0.85; }
+  80% { opacity: 0.4; }
+  100% { transform: translateY(-54vh) translateX(2vw); opacity: 0; }
+}
+
+.tf-particle { animation: tf-float-up linear infinite; will-change: transform, opacity; }
+
+/* A soft beam sweeping across the headline zone. */
+@keyframes tf-beam-sweep {
+  0%, 8% { transform: translateX(-130%) skewX(-12deg); opacity: 0; }
+  18% { opacity: 0.8; }
+  46% { transform: translateX(140%) skewX(-12deg); opacity: 0; }
+  100% { transform: translateX(140%) skewX(-12deg); opacity: 0; }
+}
+
+.tf-beam-sweep { animation: tf-beam-sweep 11s ease-in-out infinite; will-change: transform, opacity; }
+
+/* Rotating light ring around the FSD composer — a conic gradient border. */
+@property --tf-ring-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
+@keyframes tf-ring-spin {
+  to { --tf-ring-angle: 360deg; }
+}
+
+.tf-ring {
+  background: conic-gradient(
+    from var(--tf-ring-angle, 0deg),
+    rgba(99, 102, 241, 0) 0deg,
+    rgba(99, 102, 241, 0.85) 55deg,
+    rgba(59, 130, 246, 0.6) 105deg,
+    rgba(99, 102, 241, 0) 165deg,
+    rgba(99, 102, 241, 0) 360deg
+  );
+  animation: tf-ring-spin 5s linear infinite;
+}
+
+/* Scroll-reveal for the dashboard sections (added by IntersectionObserver). */
+.tf-reveal-pending {
+  opacity: 0;
+  transform: translateY(24px);
+}
+
+.tf-revealed {
+  animation: tf-fade-slide-in 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tf-anim-1, .tf-anim-2, .tf-anim-3, .tf-anim-4, .tf-anim-5,
+  .tf-drift-a, .tf-drift-b, .tf-drift-c, .tf-grid-rise, .tf-particle,
+  .tf-beam-sweep, .tf-ring, .tf-revealed {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+  .tf-reveal-pending {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 /* Custom scrollbar for modern dashboards */

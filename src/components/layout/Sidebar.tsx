@@ -42,6 +42,8 @@ export interface SidebarProps {
   onSelectSession?: (id: string) => void;
   onNewSession?: () => void;
   onDeleteSession?: (id: string) => void;
+  /** Delete every saved project at once. */
+  onClearHistory?: () => void;
 }
 
 /** Compact relative time for the history rows. */
@@ -71,6 +73,7 @@ export function Sidebar({
   onSelectSession,
   onNewSession,
   onDeleteSession,
+  onClearHistory,
 }: SidebarProps) {
   const [activeItem, setActiveItem] = useState("Dashboard");
   const [isHovered, setIsHovered] = useState(false);
@@ -233,13 +236,24 @@ export function Sidebar({
             <>
               <div
                 className={cn(
-                  "mt-2 mb-1 px-2.5 transition-all duration-200 overflow-hidden",
+                  "mt-2 mb-1 px-2.5 flex items-center transition-all duration-200 overflow-hidden",
                   isExpanded ? "opacity-100 max-h-8" : "opacity-0 max-h-0",
                 )}
               >
                 <span className="text-[10px] uppercase font-mono tracking-wider text-zinc-500">
                   History
                 </span>
+                {onClearHistory && (
+                  <button
+                    type="button"
+                    onClick={onClearHistory}
+                    className="-mr-1 ml-auto inline-flex items-center gap-1 rounded-md p-1.5 text-zinc-600 hover:text-rose-400 hover:bg-zinc-800/60 transition-colors cursor-pointer"
+                    aria-label="Clear all history"
+                    title="Clear all history"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                )}
               </div>
               <div className="max-h-52 overflow-y-auto space-y-0.5">
                 {sessions.map((session) => {

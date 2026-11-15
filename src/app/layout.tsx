@@ -1,18 +1,25 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Sora, Inter, JetBrains_Mono } from "next/font/google";
 import { EngineStatusBanner } from "@/components/layout/EngineStatusBanner";
 import "./globals.css";
 
-// One sans-serif family for the entire product — Geist Sans — with Geist Mono
-// for code/ids. Clean, neutral, enterprise-grade; no mixed display faces.
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+// Typography mirrors the marketing landing page (testforge-qa.vercel.app):
+// Sora for display/headlines, Inter for UI text, JetBrains Mono for code and
+// ids — one system across both sites.
+const sora = Sora({
+  variable: "--font-sora",
   subsets: ["latin"],
   display: "swap",
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const inter = Inter({
+  variable: "--font-inter",
+  subsets: ["latin"],
+  display: "swap",
+});
+
+const jetbrainsMono = JetBrains_Mono({
+  variable: "--font-jetbrains",
   subsets: ["latin"],
   display: "swap",
 });
@@ -30,7 +37,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} min-h-screen bg-[#0a0a0b] text-zinc-100 antialiased font-sans`}
+        className={`${sora.variable} ${inter.variable} ${jetbrainsMono.variable} min-h-screen bg-[#0a0a0b] text-zinc-100 antialiased font-sans`}
       >
         <EngineStatusBanner />
         {children}

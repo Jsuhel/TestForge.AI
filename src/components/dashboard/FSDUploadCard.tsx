@@ -141,7 +141,7 @@ export function FSDUploadCard({
                   : "Upload FSD / PRD and chat with AI for test automation..."}
               </button>
 
-              {/* Bottom row — upload (+), engine (Auto), analyze (arrow) */}
+              {/* Bottom row — upload (+) and analyze (arrow) */}
               <div className="flex items-center gap-2 pt-1 mt-auto">
                 <button
                   type="button"
@@ -153,16 +153,6 @@ export function FSDUploadCard({
                   <Plus style={{ width: 13, height: 13 }} />
                   <span className="hidden xs:inline text-[11px] font-medium">Attach</span>
                 </button>
-
-                <div
-                  title="Engine is selected automatically — AI when configured, built-in rules fallback"
-                  className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full text-[11px] text-zinc-400"
-                  style={{ background: "rgba(255,255,255,0.06)" }}
-                >
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                  Auto
-                  <ChevronDownIcon />
-                </div>
 
                 <button
                   type="button"
@@ -206,14 +196,6 @@ export function FSDUploadCard({
         )}
       </div>
     </div>
-  );
-}
-
-function ChevronDownIcon() {
-  return (
-    <svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ transform: "rotate(90deg)" }}>
-      <path d="M7 11L10 8L7 5" stroke="#8B9099" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" opacity="0.6" />
-    </svg>
   );
 }
 

@@ -241,6 +241,27 @@ async function smartClickSubmit(page: Page): Promise<void> {
   );
 }
 
+/** Best-effort sign-in on the current page. Returns true when a login form was
+ *  found and submitted — the caller continues as a guest otherwise. */
+async function attemptLogin(
+  page: Page,
+  username: string,
+  password: string,
+  emit: (line: RunLogLine) => void,
+): Promise<boolean> {
+  emit({ kind: "action", text: `Signing in as ${username}…` });
+  try {
+    await smartFill(page, /email|username|user id|login/i, username, "username", "email");
+    await smartFill(page, /password|passcode/i, password, "password", "password");
+    await smartClickSubmit(page);
+    await page.waitForLoadState("networkidle", { timeout: 8_000 }).catch(() => undefined);
+    return true;
+  } catch {
+    emit({ kind: "info", text: "No login form found — continuing without signing in." });
+    return false;
+  }
+}
+
 interface RunState {
   loggedIn: boolean;
   /** Precondition text — used to decide whether auto-login is appropriate. */
@@ -259,34 +280,24 @@ async function executeStep(
   emit: (line: RunLogLine) => void,
 ): Promise<string> {
   const s = step.toLowerCase();
-  const url = value(params, "url", "https://example.com");
   const username = value(params, "username");
   const password = value(params, "password");
   const amount = value(params, "amount", "5000");
   const testEmail = value(params, "testEmail", "not-an-email@@invalid");
   const fileName = value(params, "fileName", "./sample.pdf");
 
-  // 1. Navigation (+ login only when the step/precondition clearly implies one)
+  // 1. Navigation — the application is already open (runTestCase loads the URL
+  //    before step 1), so these steps only retry sign-in when one is implied.
   if (/navigate|access the application|open the app|go to/.test(s)) {
-    emit({ kind: "action", text: `Navigating to ${url}…` });
-    await page.goto(url, { waitUntil: "domcontentloaded", timeout: 25_000 });
-    await page.waitForLoadState("networkidle", { timeout: 8_000 }).catch(() => undefined);
-    let detail = `opened ${url}`;
     const wantsLogin = LOGIN_INTENT.test(step) || LOGIN_INTENT.test(state.precondition);
     if (username && password && !state.loggedIn && wantsLogin) {
-      emit({ kind: "action", text: `Signing in as ${username}…` });
-      try {
-        await smartFill(page, /email|username|user id|login/i, username, "username", "email");
-        await smartFill(page, /password|passcode/i, password, "password", "password");
-        await smartClickSubmit(page);
-        await page.waitForLoadState("networkidle", { timeout: 8_000 }).catch(() => undefined);
+      if (await attemptLogin(page, username, password, emit)) {
         state.loggedIn = true;
-        detail += " and signed in";
-      } catch {
-        detail += " (no login form found — continuing as guest)";
+        return "application already open — signed in";
       }
+      return "application already open (no login form found — continuing as guest)";
     }
-    return detail;
+    return "application already open";
   }
 
   // 2. Uploads
@@ -454,6 +465,34 @@ export async function runTestCase(
     const state: RunState = { loggedIn: false, precondition: tc.precondition ?? "" };
     const steps: StepResult[] = [];
     let anyFailed = false;
+
+    // Open the application BEFORE step 1. Manual steps are written in business
+    // language ("Login to the portal", "Open the loan form") and only some of
+    // them literally say "navigate" — gating navigation on such a step leaves
+    // the whole run stranded on about:blank: a blank page opens, every step is
+    // skipped, the browser closes.
+    const startUrl = value(params, "url", "https://example.com");
+    emit({ kind: "action", text: `Opening ${startUrl}…` });
+    try {
+      await page.goto(startUrl, { waitUntil: "domcontentloaded", timeout: 25_000 });
+      await page.waitForLoadState("networkidle", { timeout: 8_000 }).catch(() => undefined);
+    } catch (error) {
+      throw new RunError(friendlyError(error, "the application"));
+    }
+    emit({ kind: "success", text: `${startUrl} is open` });
+
+    // Sign in up-front when the test case implies a logged-in user — the login
+    // form is usually right on the landing page, and later "fill" steps may
+    // never mention credentials explicitly.
+    const impliesLogin =
+      LOGIN_INTENT.test(tc.precondition ?? "") || tc.steps.some((st) => LOGIN_INTENT.test(st));
+    const startUsername = value(params, "username");
+    const startPassword = value(params, "password");
+    if (impliesLogin && startUsername && startPassword) {
+      if (await attemptLogin(page, startUsername, startPassword, emit)) {
+        state.loggedIn = true;
+      }
+    }
 
     // Best-effort execution: a failed step is reported but does not abort the run,
     // so later steps still get their chance and their screenshots.

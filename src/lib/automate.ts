@@ -1,6 +1,6 @@
 import type { TestCase } from "./types";
 import { claudeCredentialsPresent } from "./analyze";
-import { executeAICall, aiEngineLabel } from "./model";
+import { executeAICall } from "./model";
 
 // ---------------------------------------------------------------------------
 // Prerequisite detection — figures out what a test case needs before automation
@@ -134,24 +134,16 @@ function sanitizeComment(text: string): string {
   return text.replace(/\*\//g, "*\u200B/").replace(/\n+/g, " ").trim();
 }
 
-/** Map one manual step to Playwright code. Best-effort heuristics. */
-function stepToCode(step: string, index: number, hasLogin: boolean, params: Record<string, string>): string[] {
+/** Map one manual step to Playwright code. Best-effort heuristics.
+ *  The application is opened before Step 1 (see builtinPlaywrightScript), so
+ *  navigation steps map to their comment only — the goto already happened. */
+function stepToCode(step: string, index: number): string[] {
   const s = step.toLowerCase();
   const lines: string[] = [];
   const comment = `// Step ${index + 1} — ${sanitizeComment(step)}`;
 
   if (/navigate|access the application|open the app|go to/.test(s)) {
-    lines.push(comment, "await page.goto(url);");
-    if (hasLogin) {
-      lines.push(
-        "",
-        "// Sign in",
-        "await page.getByLabel(/email|username/i).first().fill(username);",
-        "await page.getByLabel(/password/i).first().fill(password);",
-        "await page.getByRole(\"button\", { name: /log ?in|sign ?in|submit/i }).first().click();",
-        "await page.waitForLoadState(\"networkidle\");",
-      );
-    }
+    lines.push(comment, "// (the application is already open — see the goto above)");
     return lines;
   }
 
@@ -254,9 +246,27 @@ export function builtinPlaywrightScript(
   const keys = fields.map((f) => f.key);
   const hasLogin = keys.includes("username") && keys.includes("password");
 
-  const stepCode = tc.steps.flatMap((step, i) =>
-    stepToCode(step, i, hasLogin, params),
-  );
+  const stepCode = tc.steps.flatMap((step, i) => stepToCode(step, i));
+
+  // The script must open the application itself — manual steps are written in
+  // business language and rarely contain a literal "navigate", so gating the
+  // goto on such a step produced specs that ran (and failed) against a blank
+  // page. Same for the sign-in: do it right after the goto, not only when a
+  // step mentions it.
+  const openApp: string[] = [
+    "await page.goto(url, { waitUntil: \"domcontentloaded\" });",
+    "await page.waitForLoadState(\"networkidle\");",
+  ];
+  if (hasLogin) {
+    openApp.push(
+      "",
+      "// Sign in",
+      "await page.getByLabel(/email|username/i).first().fill(username);",
+      "await page.getByLabel(/password/i).first().fill(password);",
+      "await page.getByRole(\"button\", { name: /log ?in|sign ?in|submit/i }).first().click();",
+      "await page.waitForLoadState(\"networkidle\");",
+    );
+  }
 
   const lines: string[] = [
     "import { test, expect } from \"@playwright/test\";",
@@ -279,6 +289,9 @@ export function builtinPlaywrightScript(
     "",
     "  // ── Prerequisites (override via environment variables) ──",
     ...paramsBlock(keys, params).map((l) => `  ${l}`),
+    "",
+    "  // ── Open the application (every run starts here) ──",
+    ...openApp.map((l) => `  ${l}`),
     "",
     ...stepCode.map((l) => (l ? `  ${l}` : "")),
     "",
@@ -309,7 +322,8 @@ export async function claudePlaywrightScript(
     "- Translate each manual step into real Playwright commands with resilient selectors (getByLabel / getByRole / getByTestId over CSS).",
     "- End with an `await expect(...)` assertion that verifies the expected result.",
     "Accuracy rules — the script must run against a real app without edits:",
-    "- Start with `await page.goto(url)` using the APP_URL constant; never hard-code a different origin.",
+    "- The FIRST command of the test body MUST be `await page.goto(url)` using the APP_URL constant — even when no manual step explicitly mentions opening or navigating to the application. Never hard-code a different origin.",
+    "- When credentials are among the prerequisites, perform the login right after the goto — do not wait for a step that mentions it.",
     "- Map EVERY manual step, in order, to a numbered comment `// Step N: <short step summary>` followed by its commands — no step skipped, none invented.",
     "- Prefer role-based and label-based locators (getByRole, getByLabel, getByPlaceholder, getByTestId); use resilient CSS only as a last resort. Never use brittle selectors like nth-child chains or generated class hashes.",
     "- Never use page.waitForTimeout(). Wait for concrete things: await expect(locator).toBeVisible(), toHaveURL, toHaveText, or page.waitForLoadState.",
@@ -328,6 +342,10 @@ export async function claudePlaywrightScript(
   // Strip markdown fences if the model added them anyway.
   const code = aiOutput.text.replace(/^```(?:typescript|ts)?\s*/i, "").replace(/```\s*$/i, "").trim();
   if (!code.includes("test(")) return null;
+  // A spec that never opens the application runs against about:blank — every
+  // locator fails on a blank page. Reject it so the built-in engine (which
+  // always navigates) produces the script instead.
+  if (!/page\.goto\s*\(/.test(code)) return null;
 
   return { script: code, engineLabel: aiOutput.engineLabel };
 }

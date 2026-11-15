@@ -135,6 +135,44 @@ const CHANNEL_NAME = "testforge-sessions";
 /** localStorage keys used for the fallback and the active-session pointer. */
 const LS_PREFIX = "testforge:session:";
 const LS_ACTIVE = "testforge:active-session";
+/** Tombstone keys — sessions deleted on this browser. Written BEFORE the
+ *  cloud delete starts, so any auto-save firing mid-delete sees the tombstone
+ *  and skips its write instead of resurrecting the row. */
+const LS_TOMBSTONE = "testforge:tombstone:";
+/** Tombstones outlive any plausible in-flight write; past this they are pruned. */
+const TOMBSTONE_TTL_MS = 30 * 24 * 3600_000;
+
+function isTombstoned(id: string): boolean {
+  try {
+    return localStorage.getItem(LS_TOMBSTONE + id) !== null;
+  } catch {
+    return false;
+  }
+}
+
+function writeTombstone(id: string): void {
+  try {
+    localStorage.setItem(LS_TOMBSTONE + id, new Date().toISOString());
+    // Bound the set — session ids never repeat, so old entries are useless.
+    const cutoff = Date.now() - TOMBSTONE_TTL_MS;
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const key = localStorage.key(i);
+      if (!key?.startsWith(LS_TOMBSTONE)) continue;
+      const ts = Date.parse(localStorage.getItem(key) ?? "");
+      if (Number.isFinite(ts) && ts < cutoff) localStorage.removeItem(key);
+    }
+  } catch {
+    // best-effort — worst case a deleted session can be re-saved
+  }
+}
+
+function clearTombstone(id: string): void {
+  try {
+    localStorage.removeItem(LS_TOMBSTONE + id);
+  } catch {
+    // best-effort
+  }
+}
 
 let dbPromise: Promise<IDBDatabase> | null = null;
 
@@ -279,7 +317,9 @@ async function pushLocalOnlySessionsToCloud(remoteRows: SessionRow[]): Promise<v
   try {
     const local = await localList();
     const remoteIds = new Set(remoteRows.map((row) => row.id));
-    const missing = local.filter((session) => !remoteIds.has(session.id));
+    // Tombstoned sessions are deleted, not "not yet synced" — pushing them
+    // would resurrect rows the user just removed.
+    const missing = local.filter((session) => !remoteIds.has(session.id) && !isTombstoned(session.id));
     if (missing.length === 0) return;
     const sb = getSupabase();
     for (const session of missing) {
@@ -343,6 +383,11 @@ export async function getSession(id: string): Promise<ProjectSession | null> {
 
 /** Insert or update a session and notify other tabs/devices. */
 export async function putSession(session: ProjectSession): Promise<void> {
+  // Never resurrect a session deleted on this browser. The dashboard's
+  // debounced auto-save can fire while a delete is still in flight (with the
+  // session still in React state) — without this check its upsert would
+  // recreate the row right after the delete removed it.
+  if (isTombstoned(session.id)) return;
   if (isSupabaseConfigured()) {
     try {
       const { error } = await withTimeout(getSupabase().from(TABLE).upsert(sessionToRow(session)));
@@ -358,14 +403,22 @@ export async function putSession(session: ProjectSession): Promise<void> {
   notifyPeers(session.id);
 }
 
-/** Delete a session everywhere (cloud + local cache). */
+/** Delete a session everywhere (cloud + local cache). Throws when the cloud
+ *  delete fails, so the caller can report it instead of silently showing a
+ *  row that the next list would bring back. */
 export async function deleteSession(id: string): Promise<void> {
+  // Tombstone FIRST, synchronously — any auto-save that fires while the
+  // network delete is in flight must see it and skip its write.
+  writeTombstone(id);
   if (isSupabaseConfigured()) {
     try {
-      await withTimeout(getSupabase().from(TABLE).delete().eq("id", id));
-    } catch {
-      // offline — the local delete below still runs; cloud copy is
-      // removed on the next successful delete or list reconciliation
+      const { error } = await withTimeout(getSupabase().from(TABLE).delete().eq("id", id));
+      if (error) throw error;
+    } catch (error) {
+      // The cloud row survived — lift the tombstone so normal syncing of this
+      // session (it still exists) keeps working, and let the caller report it.
+      clearTombstone(id);
+      throw error instanceof Error ? error : new Error(String(error));
     }
   }
   await localDelete(id);
@@ -435,6 +488,20 @@ export function subscribeToSessions(listener: () => void): () => void {
         "postgres_changes",
         { event: "*", schema: "public", table: TABLE },
         () => listener(),
+      );
+      // Another device deleted a row — drop the local cache copy too, or the
+      // next list's self-heal would push it back into the cloud.
+      realtimeChannel.on(
+        "postgres_changes",
+        { event: "DELETE", schema: "public", table: TABLE },
+        (payload: { old?: { id?: string } }) => {
+          const deletedId = payload.old?.id;
+          if (deletedId) {
+            writeTombstone(deletedId);
+            void localDelete(deletedId);
+          }
+          listener();
+        },
       );
       realtimeChannel.subscribe();
       unsubscribeRealtime = () => {

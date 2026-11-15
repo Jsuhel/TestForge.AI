@@ -126,20 +126,43 @@ export default function DashboardPage() {
   );
 
   // Hydrate once on mount: ?session= param wins, else the last active session.
+  // The composer renders only once `hydrated` flips — so flip it FAST:
+  // instantly when no session can restore, and never later than 1.2s even if
+  // the session fetch crawls. The sidebar list refreshes in the background
+  // and must never gate first paint (it used to — 3s+ Supabase round trips
+  // left the hero stuck without its search box).
   useEffect(() => {
     let cancelled = false;
-    (async () => {
-      const paramId = new URLSearchParams(window.location.search).get("session");
-      const savedId = paramId ?? getActiveSessionId();
-      if (savedId) {
+    const paramId = new URLSearchParams(window.location.search).get("session");
+    const savedId = paramId ?? getActiveSessionId();
+
+    if (!savedId) {
+      setHydrated(true);
+      void refreshSessions();
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    const bail = setTimeout(() => {
+      if (!cancelled) setHydrated(true);
+    }, 1200);
+
+    void (async () => {
+      try {
         const session = await getSession(savedId);
         if (session && !cancelled) applySession(session);
+      } catch {
+        // offline or deleted — the empty upload view is the right fallback
       }
       await refreshSessions();
+      clearTimeout(bail);
       if (!cancelled) setHydrated(true);
     })();
+
     return () => {
       cancelled = true;
+      clearTimeout(bail);
     };
   }, [applySession, refreshSessions]);
 
@@ -166,6 +189,33 @@ export default function DashboardPage() {
 
   // Other tabs/windows editing sessions updates this tab's history list.
   useEffect(() => subscribeToSessions(() => void refreshSessions()), [refreshSessions]);
+
+  // Scroll-reveal — dashboard sections rise in as they enter the viewport.
+  // Runs again whenever the set of mounted sections changes. Reduced-motion
+  // users get no animation and no hiding.
+  useEffect(() => {
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+    const targets = Array.from(document.querySelectorAll<HTMLElement>("[data-reveal]")).filter(
+      (el) => !el.classList.contains("tf-revealed") && !el.classList.contains("tf-reveal-pending"),
+    );
+    if (!targets.length) return;
+    targets.forEach((el) => el.classList.add("tf-reveal-pending"));
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting) continue;
+          entry.target.classList.remove("tf-reveal-pending");
+          entry.target.classList.add("tf-revealed");
+          io.unobserve(entry.target);
+        }
+      },
+      { threshold: 0.08 },
+    );
+    targets.forEach((el) => io.observe(el));
+    return () => io.disconnect();
+    // `phase` covers showAnalysis (a pure derivation of it) — referencing the
+    // const here would hit its temporal dead zone further up the component.
+  }, [phase, automationTc]);
 
   // Snapshot the current workspace into a session object (null when nothing durable yet).
   const buildSession = useCallback((): ProjectSession | null => {
@@ -254,12 +304,48 @@ export default function DashboardPage() {
         `Delete project "${summary?.title ?? id}" and its saved conversation? This cannot be undone.`,
       );
       if (!ok) return;
-      await deleteSession(id);
+      try {
+        await deleteSession(id);
+      } catch (err) {
+        const detail = err instanceof Error && err.message ? err.message : "unknown error";
+        // The upload-card error banner only renders before an analysis is
+        // shown — use a direct alert mid-session so the failure is never silent.
+        if (phase === "upload" || phase === "analyzing") {
+          setError(`Could not delete the project: ${detail}`);
+        } else {
+          window.alert(`Could not delete the project: ${detail}`);
+        }
+        return;
+      }
       if (id === sessionId) startNewSession();
       await refreshSessions();
     },
-    [sessions, sessionId, startNewSession, refreshSessions],
+    [sessions, sessionId, phase, startNewSession, refreshSessions],
   );
+
+  /** Delete every saved project at once (the sidebar's Clear history button). */
+  const handleClearHistory = useCallback(async () => {
+    if (!sessions.length) return;
+    const ok = window.confirm(
+      `Delete all ${sessions.length} saved project${sessions.length > 1 ? "s" : ""} and their conversations? This cannot be undone.`,
+    );
+    if (!ok) return;
+    let failures = 0;
+    await Promise.all(
+      sessions.map((s) =>
+        deleteSession(s.id).catch(() => {
+          failures += 1;
+        }),
+      ),
+    );
+    if (failures > 0) {
+      const message = `Could not delete ${failures} of ${sessions.length} project${failures > 1 ? "s" : ""} — they remain in the list.`;
+      if (phase === "upload" || phase === "analyzing") setError(message);
+      else window.alert(message);
+    }
+    if (sessions.some((s) => s.id === sessionId)) startNewSession();
+    await refreshSessions();
+  }, [sessions, sessionId, phase, startNewSession, refreshSessions]);
 
   const handleAnalyze = async () => {
     if (!selectedFile) return;
@@ -500,6 +586,7 @@ export default function DashboardPage() {
         onSelectSession={(id) => void selectSession(id)}
         onNewSession={startNewSession}
         onDeleteSession={(id) => void handleDeleteSession(id)}
+        onClearHistory={() => void handleClearHistory()}
       />
 
       {/* Main Content Area */}
@@ -507,41 +594,156 @@ export default function DashboardPage() {
         {/* Sticky Header */}
         <Header onOpenMobileMenu={() => setMobileMenuOpen(true)} />
 
-        {/* Hero — static, flat. Fills the first screen before any analysis. */}
-        <section id="fsd-upload-section" className="relative scroll-mt-16">
+        {/* Hero — editorial landing view. Animated indigo field (the brand
+            blue), serif headline, and the FSD composer as the one CTA.
+            Collapses to a slim header row once an analysis is on screen. */}
+        <section id="fsd-upload-section" className="relative isolate scroll-mt-16 overflow-hidden">
+          {/* Ambient background — deep indigo wash, four drifting orbs
+              (pre-blurred radial gradients: visible motion, zero paint cost),
+              a rising grid, floating particles and a passing beam. */}
+          {!showAnalysis && (
+            <div aria-hidden className="pointer-events-none absolute inset-0">
+              <div className="absolute inset-0 bg-[radial-gradient(120%_90%_at_50%_0%,#10102a_0%,#0a0a0b_60%)]" />
+              <div
+                className="tf-drift-a absolute -top-48 left-[6%] h-[560px] w-[560px] rounded-full"
+                style={{ background: "radial-gradient(circle, rgba(79,70,229,0.42), rgba(79,70,229,0.14) 45%, transparent 70%)" }}
+              />
+              <div
+                className="tf-drift-b absolute top-1/4 right-[2%] h-[480px] w-[480px] rounded-full"
+                style={{ background: "radial-gradient(circle, rgba(59,130,246,0.30), rgba(59,130,246,0.10) 45%, transparent 70%)" }}
+              />
+              <div
+                className="tf-drift-c absolute -bottom-36 left-[36%] h-[440px] w-[440px] rounded-full"
+                style={{ background: "radial-gradient(circle, rgba(99,102,241,0.30), rgba(99,102,241,0.10) 45%, transparent 70%)" }}
+              />
+              <div
+                className="tf-drift-b absolute -top-28 left-[-10%] h-[400px] w-[400px] rounded-full"
+                style={{
+                  background: "radial-gradient(circle, rgba(79,70,229,0.24), transparent 65%)",
+                  animationDelay: "-9s",
+                }}
+              />
+              {/* Grid — taller than the viewport so translateY loops seamlessly. */}
+              <div className="absolute inset-0 overflow-hidden [mask-image:radial-gradient(80%_65%_at_50%_40%,black,transparent)]">
+                <div
+                  className="tf-grid-rise absolute inset-x-0 -top-px h-[calc(100%+44px)]"
+                  style={{
+                    backgroundImage:
+                      "linear-gradient(rgba(255,255,255,0.07) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.07) 1px, transparent 1px)",
+                    backgroundSize: "44px 44px",
+                  }}
+                />
+              </div>
+              {/* Rising dust motes — the always-visible life sign. */}
+              {[
+                { left: "16%", size: 4, duration: "12s", delay: "0s" },
+                { left: "31%", size: 3, duration: "16s", delay: "-5s" },
+                { left: "46%", size: 5, duration: "10s", delay: "-2s" },
+                { left: "58%", size: 3, duration: "18s", delay: "-9s" },
+                { left: "71%", size: 4, duration: "13s", delay: "-6s" },
+                { left: "85%", size: 3, duration: "15s", delay: "-3s" },
+                { left: "8%", size: 3, duration: "17s", delay: "-11s" },
+              ].map((p, i) => (
+                <span
+                  key={i}
+                  className="tf-particle absolute bottom-0 rounded-full bg-indigo-200"
+                  style={{
+                    left: p.left,
+                    width: p.size,
+                    height: p.size,
+                    animationDuration: p.duration,
+                    animationDelay: p.delay,
+                  }}
+                />
+              ))}
+              <div className="tf-beam-sweep absolute top-0 h-full w-[36%] bg-[linear-gradient(90deg,transparent,rgba(129,140,248,0.13),transparent)]" />
+            </div>
+          )}
           <div
             className={
-              "flex w-full flex-col items-center px-4 sm:px-6 " +
+              "relative flex w-full flex-col items-center px-4 sm:px-6 " +
               (!showAnalysis
-                ? " min-h-[calc(100dvh-4rem)] justify-center py-10 sm:py-14 lg:py-16"
+                ? " min-h-[calc(100dvh-4rem)] justify-center py-8 sm:py-10 lg:py-12"
                 : " py-8 sm:py-10")
             }
           >
             <div className="flex w-full max-w-2xl flex-col items-center">
-              <h1 className="text-balance text-3xl sm:text-4xl md:text-5xl font-semibold tracking-tight text-zinc-100 px-2">
+              {!showAnalysis && (
+                <div className="tf-anim-1 mb-4 sm:mb-5 inline-flex items-center gap-3 rounded-full bg-white/[0.06] px-2.5 py-2 ring-1 ring-white/10 backdrop-blur">
+                  <span className="rounded-full bg-[#4F46E5] px-2 py-0.5 text-xs font-medium text-white">
+                    AI
+                  </span>
+                  <span className="text-sm font-medium text-zinc-300">
+                    <span className="hidden sm:inline">
+                      Requirements → scenarios → Playwright, one flow
+                    </span>
+                    <span className="sm:hidden">Specs → scenarios → tests</span>
+                  </span>
+                </div>
+              )}
+
+              <h1
+                className={
+                  "text-balance px-2 " +
+                  (showAnalysis
+                    ? "text-3xl sm:text-4xl font-medium tracking-[-0.015em] text-zinc-100"
+                    : "tf-anim-2 tf-headline-xl text-center font-medium leading-[1.04] tracking-[-0.015em] text-white text-[2.9rem] sm:text-6xl lg:text-[3.75rem]")
+                }
+              >
                 TestForge AI
+                {!showAnalysis && (
+                  <>
+                    <br className="hidden sm:block" />
+                    <span className="font-normal text-[0.48em] text-zinc-200 sm:whitespace-nowrap">
+                      turns specs into running tests
+                    </span>
+                  </>
+                )}
               </h1>
-              <p className="mt-3 sm:mt-4 text-balance text-sm sm:text-base text-zinc-500 max-w-lg px-4">
-                From requirements to reliable testing
-              </p>
+
+              {showAnalysis && (
+                <p className="mt-3 sm:mt-4 text-balance text-sm sm:text-base text-zinc-500 max-w-lg px-4">
+                  From requirements to reliable testing
+                </p>
+              )}
 
               {/* Step 1: FSD Upload / Requirement Analysis.
                   Held back one tick until saved sessions are restored so a
                   refresh never flashes the empty upload screen. */}
               {!showAnalysis && hydrated ? (
-                <div className="mt-8 sm:mt-10 w-full max-w-[560px]">
-                  <FSDUploadCard
-                    selectedFile={selectedFile}
-                    onSelectFile={(file) => {
-                      setSelectedFile(file);
-                      setError(null);
-                    }}
-                    onAnalyze={handleAnalyze}
-                    analyzing={phase === "analyzing"}
-                    error={error}
-                  />
+                <div className="tf-anim-3 mt-6 sm:mt-8 w-full max-w-[560px]">
+                  {/* Rotating indigo light ring — lives on the wrapper, the
+                      composer card inside stays exactly as it was. */}
+                  <div className="tf-ring relative rounded-[18px] p-[1.5px] ring-1 ring-indigo-300/20">
+                    <FSDUploadCard
+                      selectedFile={selectedFile}
+                      onSelectFile={(file) => {
+                        setSelectedFile(file);
+                        setError(null);
+                      }}
+                      onAnalyze={handleAnalyze}
+                      analyzing={phase === "analyzing"}
+                      error={error}
+                    />
+                  </div>
                 </div>
               ) : null}
+
+              {/* Capability strip — the quiet "trusted by" band, without
+                  invented logos: what the pipeline actually does. */}
+              {!showAnalysis && (
+                <div className="tf-anim-4 mt-10 sm:mt-12 flex flex-wrap items-center justify-center gap-x-3 gap-y-2 text-[13px] text-zinc-400">
+                  <span>FSD analysis</span>
+                  <span className="text-zinc-600">·</span>
+                  <span>Scenario suite</span>
+                  <span className="text-zinc-600">·</span>
+                  <span>Excel export</span>
+                  <span className="text-zinc-600">·</span>
+                  <span>Playwright scripts</span>
+                  <span className="text-zinc-600">·</span>
+                  <span>Live execution</span>
+                </div>
+              )}
             </div>
           </div>
         </section>
@@ -550,7 +752,7 @@ export default function DashboardPage() {
         <main className={showAnalysis ? "flex-1 p-4 sm:p-6 lg:p-8 space-y-5 max-w-7xl w-full mx-auto" : "hidden"}>
 
           {analysis && (
-            <section id="analysis-section" className="scroll-mt-20">
+            <section id="analysis-section" data-reveal className="scroll-mt-20">
               <RequirementAnalysisCard
                 analysis={analysis}
                 generating={phase === "generating"}
@@ -564,7 +766,7 @@ export default function DashboardPage() {
           {/* FSD Chat — ask GLM clarifying questions about the analyzed document.
               Conversation lives in the session so it survives refreshes. */}
           {showAnalysis && analysis && (
-            <section id="chat-section" className="scroll-mt-20">
+            <section id="chat-section" data-reveal className="scroll-mt-20">
               <FSDChatCard
                 key={sessionId ?? analysis.documentName}
                 analysis={analysis}
@@ -578,7 +780,7 @@ export default function DashboardPage() {
 
           {/* Step 2: Generated Test Cases */}
           {phase === "generated" && testCases.length > 0 && (
-            <section id="testcases-section" className="scroll-mt-20">
+            <section id="testcases-section" data-reveal className="scroll-mt-20">
               <TestCasesCard
                 testCases={testCases}
                 engine={testEngine}
@@ -609,7 +811,7 @@ export default function DashboardPage() {
 
           {/* Step 3: Playwright automation for the selected test case */}
           {automationTc && (
-            <section id="automation-section" className="scroll-mt-20">
+            <section id="automation-section" data-reveal className="scroll-mt-20">
               <AutomationCard
                 testCase={automationTc}
                 generating={automating}
